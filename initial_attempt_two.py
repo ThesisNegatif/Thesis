@@ -1,13 +1,21 @@
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import AgglomerativeClustering
-import csv
+#import csv
+#import pandas as pd
 
+with open('JWN_Nordstrom_MDNA_overview_2017.txt', 'r') as file:
+    initial_corpus = file.read()
+#print(initial_corpus)
 
-with open('JWN_Nordstrom_MDNA_overview_2017.csv', 'r') as f:
-    reader = csv.reader(f)
-    initial_corpus = list(reader)
-print(initial_corpus)
+# df = pd.read_csv('JWN_Nordstrom_MDNA_overview_2017.csv', header=None)
+# print(df)
+#
+# with open('JWN_Nordstrom_MDNA_overview_2017.csv', 'r') as f:
+#     reader = csv.reader(f)
+#     initial_corpus = list(reader)
+# print(initial_corpus)
 corpus = initial_corpus.split('. ')
+#print(corpus)
 
 embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
 
