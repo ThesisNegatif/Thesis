@@ -31,35 +31,40 @@ corpus_embeddings = embedder.encode(corpus)
 # Perform kmean clustering
 num_clusters = 5
 clustering_model = KMeans(n_clusters=num_clusters)
-labels = clustering_model.fit_predict(corpus_embeddings)
+clustering_model.fit(corpus_embeddings)
+labels = clustering_model.predict(corpus_embeddings)
 cluster_assignment = clustering_model.labels_
 cluster_centre = clustering_model.cluster_centers_
 
-print(cluster_centre.shape)
-print(labels.shape)
-print(len(corpus_embeddings))
-print(corpus_embeddings[0].shape)
+# print(cluster_centre.shape)
+# print(labels.shape)
+# print(len(corpus_embeddings))
+# print(corpus_embeddings[0].shape)
 
 df1 = pd.DataFrame()
 df1['sentences'] = corpus_embeddings
 df1['labels'] = labels
 
 #print(df1.head())
-print(df1.shape)
+# print(df1.shape)
 ##print(df1['sentences'][df1['labels']==1])
 
-print(cluster_centre)
-print(df1.head())
+# print(cluster_centre)
+# print(df1.head())
+
+# print('cluster_assignment', cluster_assignment)
 
 
 #print(df1['sentences'][df1['labels']==0][0])
+#
+# repeatnumber = len(df1['sentences'][df1['labels']==0])
+# print(repeatnumber)
 
-repeatnumber = len(df1['sentences'][df1['labels']==0])
-print(repeatnumber)
-
-similarities = cosine_similarity(df1['sentences'][df1['labels']==0], cluster_centre[0])
+#similarities = cosine_similarity(df1['sentences'][df1['labels']==0], cluster_centre[0])
 #similarities = cosine_similarity(df1['sentences'][df1['labels']==0][0], cluster_centre[0])
-print(similarities)
+#print(similarities)
+
+#after getting similarities use the index to get the original sentence back from original corpus
 
 #corpus_embeddings is a list of arrays, labels is an array with the labels for each sentence
 #cluster_centre is a list of 5 arrays for the 5 centres of each cluster
@@ -69,8 +74,27 @@ print(similarities)
 # clustered_sentences = [[] for i in range(num_clusters)]
 # for sentence_id, cluster_id in enumerate(cluster_assignment):
 #     clustered_sentences[cluster_id].append(corpus[sentence_id])
-
+#     #print(cluster_id)
+# print(clustered_sentences)
 # for i, cluster in enumerate(clustered_sentences):
 #     print("Cluster ", i+1)
 #     print(cluster)
 #     print("")
+
+clustered_sentences = [[] for i in range(num_clusters)]
+for sentence_id, cluster_id in enumerate(cluster_assignment):
+    clustered_sentences[cluster_id].append(corpus_embeddings[sentence_id])
+
+#similarities = cosine_similarity(df1['sentences'][df1['labels']==0], cluster_centre[0])
+#similarities = cosine_similarity(df1['sentences'][df1['labels']==0][0], cluster_centre[0])
+
+cosine_similarities = [[] for i in range(num_clusters)]
+for i, cluster in enumerate(clustered_sentences):
+    for sentence in cluster:
+        cosine_similarity_score = cosine_similarity(sentence.reshape(1,-1), cluster_centre[i].reshape(1,-1))
+        cosine_similarities[i].append(cosine_similarity_score)
+
+for cluster in cosine_similarities:
+    print(max(cluster))
+#print(cosine_similarities)
+#Reshape your data either using array.reshape(-1, 1) if your data has a single feature or array.reshape(1, -1) if it contains a single sample.
