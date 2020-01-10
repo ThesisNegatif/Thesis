@@ -58,7 +58,14 @@ all_data_df['cluster_centres'] = cluster_centres_list
 
 #DOESN'T WORK: all_data_df['cosine_similarities_to_centre'] = cosine_similarity(all_data_df['embeddings'].reshape(1,-1), all_data_df['cluster_centres'].reshape(1,-1))
 all_data_df['cosine_similarities_to_centre'] = [cosine_similarity(x.reshape(1,-1),y.reshape(1,-1)) for x, y in zip(all_data_df['embeddings'], all_data_df['cluster_centres'])]
-print(all_data_df.head())
+#print(all_data_df.head())
+all_data_df.to_csv('all_data_df.csv')
+
+new_df = all_data_df.groupby(['labels']).max()
+#print(new_df)
+
+new_df.to_csv('new_df.csv')
+
 
 # for index, row in all_data_df.iterrows():
 #     iforval = cluster_centres[row['labels']]
