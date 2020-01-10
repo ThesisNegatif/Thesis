@@ -1,0 +1,6 @@
+labels,sentences,embeddings,cluster_centres,cosine_similarities_to_centre
+0,"We reached record sales of $14.5 billion for the year, reflecting a net sales increase of 2.9% and comparable sales decrease of 0.4% primarily driven by full-line stores",,,[[ 0.99845039]]
+1,"We offer an extensive selection of high-quality brand-name and private label merchandise through our various channels, including Nordstrom U.S",,,[[ 0.99774514]]
+2,We achieved the following milestones in multiple growth areas,,,[[ 0.99852253]]
+3,"With customer expectations changing faster than ever, it is important that we remain focused on the customer",,,[[ 0.99845084]]
+4,"and Canada full-line stores, Nordstrom.com, Nordstrom Rack stores, Nordstromrack.com/HauteLook, Trunk Club clubhouses and TrunkClub.com, Jeffrey boutiques and Last Chance clearance stores",,,[[ 0.99785097]]
