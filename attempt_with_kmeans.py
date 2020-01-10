@@ -57,14 +57,47 @@ all_data_df['cluster_centres'] = cluster_centres_list
 # print(all_data_df['cluster_centres'][1].shape)
 
 #DOESN'T WORK: all_data_df['cosine_similarities_to_centre'] = cosine_similarity(all_data_df['embeddings'].reshape(1,-1), all_data_df['cluster_centres'].reshape(1,-1))
-all_data_df['cosine_similarities_to_centre'] = [cosine_similarity(x.reshape(1,-1),y.reshape(1,-1)) for x, y in zip(all_data_df['embeddings'], all_data_df['cluster_centres'])]
-#print(all_data_df.head())
-all_data_df.to_csv('all_data_df.csv')
+##LINE BELOW IS THE ORIGINAL METHOD TO ADD COSINES TO DATAFRAME THAT WORKS
+##all_data_df['cosine_similarities_to_centre'] = [cosine_similarity(x.reshape(1,-1),y.reshape(1,-1)) for x, y in zip(all_data_df['embeddings'], all_data_df['cluster_centres'])]
+cosine_similarities_list = [cosine_similarity(x.reshape(1,-1),y.reshape(1,-1)) for x, y in zip(all_data_df['embeddings'], all_data_df['cluster_centres'])]
+cosine_similarities_list = [cosines[0][0] for cosines in cosine_similarities_list]
+all_data_df['cosine_similarities_to_centre'] = cosine_similarities_list
+#print(len(cosine_similarities_list))
 
-new_df = all_data_df.groupby(['labels']).max()
+# for cosines in cosine_similarities_list:
+#     print(cosines[0][0])
+# print(cosine_similarities_list[0][0][0])
+
+#print(all_data_df)
+#all_data_df.to_csv('all_data_df.csv')
+
+# print(all_data_df.loc[all_data_df.groupby(["labels"])["cosine_similarities_to_centre"].idxmax()])
+
+# idx = all_data_df.groupby(['labels'])['cosine_similarities_to_centre'].transform(max) == all_data_df['cosine_similarities_to_centre']
+# print(all_data_df[idx])
+
+# METHOD BELOW WORKS!!!!!
+new_df = all_data_df.sort_values(['labels', 'cosine_similarities_to_centre'], ascending=False).drop_duplicates(['labels'])
+print(len(new_df['sentences'].tolist()))
+#new_df.to_csv('new_df.csv')
+
+##### BELOW THIS LINE IS UNCESSARY STUFF #####
+##############################################
+
+#for i in range(num_clusters):
+# df_labels = all_data_df[all_data_df['labels'] == 1]
+# print(df_labels)
+# print(df_labels.index)
+# print(df_labels[df_labels['cosine_similarities_to_centre'].max()])
+
+
+
+# max_index = df_labels.loc[df_labels.idxmax(),'cosine_similarities_to_centre']
+# print(max_index)
+
+#new_df = all_data_df.groupby(['labels']).max()
 #print(new_df)
-
-new_df.to_csv('new_df.csv')
+#new_df.to_csv('new_df.csv')
 
 
 # for index, row in all_data_df.iterrows():
