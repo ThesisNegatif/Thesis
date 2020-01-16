@@ -16,6 +16,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 #     return n
 
 def read_file():
+    """
+    Args:
+        None 
+    Returns:
+        corpus(str): Full text corpus read in as a string.
+    """
     overview_file = input("Enter txt file name of data: ")
     with open(overview_file, 'r') as file:
         initial_corpus = file.read()
@@ -29,6 +35,16 @@ def read_file():
 # corpus = initial_corpus.split('. ')
 
 def JustificationMiner(corpus, clustering_model=['Kmeans','Agglomerative'], num_clusters=5, save_data=False):
+    """
+    Args:
+        corpus(str): Text corpus on which to perform Justification Mining.
+        clustering_model(str): Clustering model to use. Options are 'Kmeans' and 'Agglomerative'.
+        num_clusters(int): Number of clusters returned by clustering models. Defaults to 5.
+        save_data(bool): Whether to save Pandas dataframes of both the full data and max cosines
+            similarity scores data. Saves in two new csv files within same directory. Defaults to False.
+    Returns:
+        justifications(list): Full list of justification sentences returned by the miner.
+    """
     # Extract sentence embeddings
     embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
     corpus_embeddings = embedder.encode(corpus)
