@@ -60,8 +60,8 @@ all_data_df['cluster_centres'] = cluster_centres_list
 ##LINE BELOW IS THE ORIGINAL METHOD TO ADD COSINES TO DATAFRAME THAT WORKS
 ##all_data_df['cosine_similarities_to_centre'] = [cosine_similarity(x.reshape(1,-1),y.reshape(1,-1)) for x, y in zip(all_data_df['embeddings'], all_data_df['cluster_centres'])]
 cosine_similarities_list = [cosine_similarity(x.reshape(1,-1),y.reshape(1,-1)) for x, y in zip(all_data_df['embeddings'], all_data_df['cluster_centres'])]
-cosine_similarities_list = [cosines[0][0] for cosines in cosine_similarities_list]
-all_data_df['cosine_similarities_to_centre'] = cosine_similarities_list
+cosine_similarities_list_final = [cosines[0][0] for cosines in cosine_similarities_list]
+all_data_df['cosine_similarities_to_centre'] = cosine_similarities_list_final
 #print(len(cosine_similarities_list))
 
 # for cosines in cosine_similarities_list:
@@ -71,12 +71,16 @@ all_data_df['cosine_similarities_to_centre'] = cosine_similarities_list
 #print(all_data_df)
 #all_data_df.to_csv('all_data_df.csv')
 
+# Tried below 3 methods on dataframe with toy data and same columns and all worked, but on
+# actual data only the last method worked.
+# Method 1: using idxmax() function
 # print(all_data_df.loc[all_data_df.groupby(["labels"])["cosine_similarities_to_centre"].idxmax()])
 
+# Method 2: groupby, max and getting index
 # idx = all_data_df.groupby(['labels'])['cosine_similarities_to_centre'].transform(max) == all_data_df['cosine_similarities_to_centre']
 # print(all_data_df[idx])
 
-# METHOD BELOW WORKS!!!!!
+# METHOD BELOW WORKS!!!!! method using sort_values
 new_df = all_data_df.sort_values(['labels', 'cosine_similarities_to_centre'], ascending=False).drop_duplicates(['labels'])
 print(len(new_df['sentences'].tolist()))
 #new_df.to_csv('new_df.csv')
@@ -132,6 +136,7 @@ print(len(new_df['sentences'].tolist()))
 #cluster_centres is shape 5,768. labels has 29 points, len of corpus_embeddings is 29 and
 #shape of each corpus_embedding array is 768,
 
+#Code below to print the clusters
 # clustered_sentences = [[] for i in range(num_clusters)]
 # for sentence_id, cluster_id in enumerate(cluster_assignment):
 #     clustered_sentences[cluster_id].append(corpus[sentence_id])
@@ -153,6 +158,14 @@ for cluster_id, cluster in enumerate(clustered_sentences):
     for sentence in cluster:
         cosine_similarity_score = cosine_similarity(sentence.reshape(1,-1), cluster_centres[cluster_id].reshape(1,-1))
         cosine_similarities[cluster_id].append(cosine_similarity_score)
+
+# Another method I thought of trying was to put data into key, values of a dictionary
+# and then iterate over that, because iterating over dictionaries is generally faster
+# However, it would need to be multiple values to each key and the organisation of it
+# was too messy.
+# Also thought to regroup the sentences into their clusters before calculating cosine-scores
+# however, even then, there had to be a way to keep track of the original sentence and not
+# just the embedding or cosine score, in order to print the original sentence at the end.
 
 # for cluster in cosine_similarities:
 #     print(max(cluster))
