@@ -9,24 +9,31 @@ from sklearn.metrics.pairwise import cosine_similarity
 # To-do: Create new functions named 'JustificationMinerKMeans', 'JustificationMinerAgglomerative', etc.
 # DONE/To-do: Move read txt function out into a separate function from justification mining
 # Code to use this in python env is import justification_miners as jm // jm.JustificationMiner(arguments)
-def read_files(overview_file):
+
+
+# def setInput():
+#     n = input("Enter file name of text data: ")
+#     return n
+
+def read_file():
+    overview_file = input("Enter txt file name of data: ")
     with open(overview_file, 'r') as file:
         initial_corpus = file.read()
     corpus = initial_corpus.split('. ')
     return corpus
-corpustwo = read_files('JWN_Nordstrom_MDNA_overview_2017.txt')
-# print(corpustwo)
-#
+#corpustwo = read_file()
+
+
 # with open('JWN_Nordstrom_MDNA_overview_2017.txt', 'r') as file:
 #     initial_corpus = file.read()
 # corpus = initial_corpus.split('. ')
 
-# Extract sentence embeddings
 def JustificationMiner(corpus, clustering_model=['Kmeans','Agglomerative'], num_clusters=5, save_data=False):
+    # Extract sentence embeddings
     embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
     corpus_embeddings = embedder.encode(corpus)
 
-    # Perform KMeans clustering
+    # Perform KMeans or Agglomerative clustering
     # num_clusters = 5
     if clustering_model=='Kmeans':
         clustering_model = KMeans(n_clusters=num_clusters)
@@ -80,7 +87,7 @@ def JustificationMiner(corpus, clustering_model=['Kmeans','Agglomerative'], num_
 
     return justifications
 
-justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
+#justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
 
 #####################
 #####################
