@@ -6,15 +6,10 @@ import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# To-do: Create new functions named 'JustificationMinerKMeans', 'JustificationMinerAgglomerative', etc.
 # DONE/To-do: Move read txt function out into a separate function from justification mining
 # Code to use this in python env is import justification_miners as jm // jm.JustificationMiner(arguments)
-#Want a way to retrieve cluster_centres, clusters, dataframe.head, justifications
+# To-do: Want a way to retrieve cluster_centres, clusters, dataframe.head, justifications
 
-
-# def setInput():
-#     n = input("Enter file name of text data: ")
-#     return n
 
 def read_file():
     """
@@ -28,13 +23,11 @@ def read_file():
         initial_corpus = file.read()
     corpus = initial_corpus.split('. ')
     return corpus
-#corpustwo = read_file()
+# file to be read in line 29 is: 'JWN_Nordstrom_MDNA_overview_2017.txt'
+# corpustwo = read_file()
 
 
-# with open('JWN_Nordstrom_MDNA_overview_2017.txt', 'r') as file:
-#     initial_corpus = file.read()
-# corpus = initial_corpus.split('. ')
-
+# Attepmt to create a class from other functions is below.
 class JustificationMiner():
     def __init__(self, corpus, clustering_model=['Kmeans','Agglomerative'], num_clusters=5, save_data=False):
         """
@@ -52,9 +45,14 @@ class JustificationMiner():
         self.num_clusters = num_clusters
         self.save_data = save_data
 
-    def mine():
+    def read_file():
+
+    def mine_justifications():
+
+    def print_clusters():
 
 
+# Function to be made into a class is below.
 def JustificationMiner(corpus, clustering_model=['Kmeans','Agglomerative'], num_clusters=5, save_data=False):
     """
     Args:
@@ -124,4 +122,4 @@ def JustificationMiner(corpus, clustering_model=['Kmeans','Agglomerative'], num_
 
     return justifications
 
-#justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
+# justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
