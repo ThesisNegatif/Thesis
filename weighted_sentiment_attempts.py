@@ -39,6 +39,9 @@ from scipy import stats
 # Code to use this in python env is import justification_miners as jm // jm.JustificationMiner(arguments)
 # To-do: Want a way to retrieve cluster_centres, clusters, dataframe.head, justifications
 
+# MAYBE but everything into one giant function so that
+# when you enter in a document, it will mine and score the sentiment of the justifications
+# Try this in a new file
 
 # def read_file():
 #     """
@@ -183,6 +186,7 @@ def preprocess(message):
     tokens = [wnl.lemmatize(token) for token in tokens if len(token)>1]
     return tokens
 
+# Make below into a new function called def numeric_tokenize()
 tokenized = [preprocess(message) for message in messages]
 bow = Counter([j for i in tokenized for j in i])
 freqs = {key: value/len(tokenized) for key, value in bow.items()}
