@@ -11,6 +11,7 @@ import nltk
 import os
 import random
 import re
+from statistics import mean
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
@@ -30,6 +31,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import SVC
 from tqdm import tqdm
+import collections
+from scipy import stats
 
 
 # DONE/To-do: Move read txt function out into a separate function from justification mining
@@ -195,16 +198,37 @@ token_ids = [[vocab[word] for word in message] for message in filtered]
 
 X_train = token_ids
 y_train = sentiments
+# Average for training data length is 16
+# avg_length = []
+# for sentence in X_train:
+#     avg_length.append(len(sentence))
+# print(len(avg_length))
+# print('average is:', mean(avg_length))
+# There's 450 sentences longer than len 25 and 170 longer than 30
+# long_length = []
+# for sentence in X_train:
+#     if len(sentence) > 30:
+#         long_length.append(len(sentence))
+# print(len(long_length))
+
 for i, sentence in enumerate(X_train):
-    if len(sentence) <=40:
-        X_train[i] = ((40-len(sentence)) * [0] + sentence)
-    elif len(sentence) > 40:
-        X_train[i] = sentence[:40]
+    if len(sentence) <=30:
+        X_train[i] = ((30-len(sentence)) * [0] + sentence)
+    elif len(sentence) > 30:
+        X_train[i] = sentence[:30]
 
 # Random Forest
 random_forest = RandomForestClassifier(n_estimators=200)
 random_forest.fit(X_train, y_train)
 
+# model_dt = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
+# model_dt.fit(X_train, y_train)
+#
+# naive_bayes = MultinomialNB()
+# naive_bayes.fit(X_train, y_train)
+#
+# SVM = SVC()
+# SVM.fit(X_train, y_train)
 
 
 tokenized_j = [preprocess(message) for message in justificationstwo]
@@ -221,5 +245,25 @@ filtered_j = [[word for word in message if word in vocab_j] for message in token
 token_ids_j = [[vocab_j[word] for word in message] for message in filtered_j]
 
 X_test = token_ids_j
+for i, sentence in enumerate(X_test):
+    if len(sentence) <=30:
+        X_test[i] = ((30-len(sentence)) * [0] + sentence)
+    elif len(sentence) > 30:
+        X_test[i] = sentence[:30]
+
 justifications_predictions_rf = random_forest.predict(X_test)
+print(justificationstwo)
 print(justifications_predictions_rf)
+# Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
+print((justifications_predictions_rf/2).mean())
+# Unweighted calculated using mode instead of mean:
+print(stats.mode(justifications_predictions_rf/2)[0][0])
+
+# justifications_predictions_dt = model_dt.predict(X_test)
+# print(justifications_predictions_dt)
+#
+# justifications_predictions_nb = naive_bayes.predict(X_test)
+# print(justifications_predictions_nb)
+#
+# justifications_predictions_svm = SVM.predict(X_test)
+# print(justifications_predictions_svm)
