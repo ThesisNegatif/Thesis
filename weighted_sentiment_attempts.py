@@ -33,6 +33,8 @@ from sklearn.svm import SVC
 from tqdm import tqdm
 import collections
 from scipy import stats
+import pickle
+nltk.download('wordnet')
 
 
 # DONE/To-do: Move read txt function out into a separate function from justification mining
@@ -42,6 +44,15 @@ from scipy import stats
 # MAYBE but everything into one giant function so that
 # when you enter in a document, it will mine and score the sentiment of the justifications
 # Try this in a new file
+# Need 3 functions (weighted, unweighted and whole document) then can put these directly
+# Into a dataframe on jupyter
+# ACTUALLY might be easier to create a new function that just calls on
+# the other functions one by one. This is probably how main files work but for now
+# can just do whatever works. this way we can keep training the model separate
+# and have the model trained separately and then have the main function call on
+# a trained model as a parameter. The train_model function could include
+# opening the file, processing and tokenising it and then fitting it to a model
+# with the final model being returned.
 
 # def read_file():
 #     """
@@ -71,7 +82,7 @@ def read_file():
     corpus = initial_corpus.split('. ')
     return corpus
 # file to be read in line 29 is: 'JWN_Nordstrom_MDNA_overview_2017.txt'
-corpustwo = read_file()
+# corpustwo = read_file()
 
 
 # Function to be made into a class is below.
@@ -144,30 +155,30 @@ def JustificationMiner(corpus, clustering_model=['Kmeans','Agglomerative'], num_
 
     return justifications
 
-justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
+# justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
 
 # Train classifier
-data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
-
-list_data = []
-for index, row in data_csv.iterrows():
-    dictionary_data = {}
-    dictionary_data['message_body'] = row['sentence']
-    if row['sentiment'] == 'positive':
-         dictionary_data['sentiment'] = 2
-    elif row['sentiment'] == 'negative':
-         dictionary_data['sentiment'] = 0
-    else:
-         dictionary_data['sentiment'] = 1
-    #dictionary_data['sentiment'] = row['sentiment']
-    list_data.append(dictionary_data)
-
-dictionary_data = {}
-dictionary_data['data'] = list_data
-
-messages = [sentence['message_body'] for sentence in dictionary_data['data']]
-sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-nltk.download('wordnet')
+# data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
+#
+# list_data = []
+# for index, row in data_csv.iterrows():
+#     dictionary_data = {}
+#     dictionary_data['message_body'] = row['sentence']
+#     if row['sentiment'] == 'positive':
+#          dictionary_data['sentiment'] = 2
+#     elif row['sentiment'] == 'negative':
+#          dictionary_data['sentiment'] = 0
+#     else:
+#          dictionary_data['sentiment'] = 1
+#     #dictionary_data['sentiment'] = row['sentiment']
+#     list_data.append(dictionary_data)
+#
+# dictionary_data = {}
+# dictionary_data['data'] = list_data
+#
+# messages = [sentence['message_body'] for sentence in dictionary_data['data']]
+# sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
+# nltk.download('wordnet') - moved this to top imports
 
 def preprocess(message):
     """
@@ -187,21 +198,84 @@ def preprocess(message):
     return tokens
 
 # Make below into a new function called def numeric_tokenize()
-tokenized = [preprocess(message) for message in messages]
-bow = Counter([j for i in tokenized for j in i])
-freqs = {key: value/len(tokenized) for key, value in bow.items()}
-low_cutoff = 0.00029
-high_cutoff = 5
-K_most_common = [x[0] for x in bow.most_common(high_cutoff)]
-filtered_words = [word for word in freqs if word not in K_most_common]
-vocab = {word: i for i, word in enumerate(filtered_words, 1)}
-id2vocab = {i: word for word, i in vocab.items()}
-filtered = [[word for word in message if word in vocab] for message in tokenized]
-# This part might need to be redone as I didn't use the balancing function
-token_ids = [[vocab[word] for word in message] for message in filtered]
+def create_X_train_test(messages):
+    tokenized = [preprocess(message) for message in messages]
+    bow = Counter([j for i in tokenized for j in i])
+    freqs = {key: value/len(tokenized) for key, value in bow.items()}
+    low_cutoff = 0.00029
+    high_cutoff = 5
+    K_most_common = [x[0] for x in bow.most_common(high_cutoff)]
+    filtered_words = [word for word in freqs if word not in K_most_common]
+    vocab = {word: i for i, word in enumerate(filtered_words, 1)}
+    id2vocab = {i: word for word, i in vocab.items()}
+    filtered = [[word for word in message if word in vocab] for message in tokenized]
+    # This part might need to be redone as I didn't use the balancing function
+    token_ids = [[vocab[word] for word in message] for message in filtered]
+    X_train_test = token_ids
+    for i, sentence in enumerate(X_train_test):
+        if len(sentence) <=30:
+            X_train_test[i] = ((30-len(sentence)) * [0] + sentence)
+        elif len(sentence) > 30:
+            X_train_test[i] = sentence[:30]
+    return(X_train_test)
 
-X_train = token_ids
-y_train = sentiments
+def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
+    data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
+
+    list_data = []
+    for index, row in data_csv.iterrows():
+        dictionary_data = {}
+        dictionary_data['message_body'] = row['sentence']
+        if row['sentiment'] == 'positive':
+             dictionary_data['sentiment'] = 2
+        elif row['sentiment'] == 'negative':
+             dictionary_data['sentiment'] = 0
+        else:
+             dictionary_data['sentiment'] = 1
+        #dictionary_data['sentiment'] = row['sentiment']
+        list_data.append(dictionary_data)
+
+    dictionary_data = {}
+    dictionary_data['data'] = list_data
+
+    messages = [sentence['message_body'] for sentence in dictionary_data['data']]
+    sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
+    X_train = create_X_train_test(messages)
+    y_train = sentiments
+    if classifier_model=='Decision_Tree':
+        model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
+        model.fit(X_train, y_train)
+    elif classifier_model=='Random_Forst':
+        model = RandomForestClassifier(n_estimators=200)
+        model.fit(X_train, y_train)
+    elif classifier_model=='Naive_Bayes':
+        model = MultinomialNB()
+        model.fit(X_train, y_train)
+    elif classifier_model=='SVM':
+        model = SVC()
+        model.fit(X_train, y_train)
+    return(model)
+
+# # Fit the model on training set
+# model = LogisticRegression()
+# model.fit(X_train, Y_train)
+
+# Comment/Uncomment following 4 lines to retrain the classifier
+trained_model = train_classifier(classifier_model='Random_Forst')
+# save the model to disk
+filename = 'finalised_classifier_model.sav'
+pickle.dump(trained_model, open(filename, 'wb'))
+
+
+
+# load the model from disk
+filename = 'finalised_classifier_model.sav'
+model = pickle.load(open(filename, 'rb'))
+
+
+# X_train = token_ids
+# y_train = sentiments
+
 # Average for training data length is 16
 # avg_length = []
 # for sentence in X_train:
@@ -215,15 +289,15 @@ y_train = sentiments
 #         long_length.append(len(sentence))
 # print(len(long_length))
 
-for i, sentence in enumerate(X_train):
-    if len(sentence) <=30:
-        X_train[i] = ((30-len(sentence)) * [0] + sentence)
-    elif len(sentence) > 30:
-        X_train[i] = sentence[:30]
-
-# Random Forest
-random_forest = RandomForestClassifier(n_estimators=200)
-random_forest.fit(X_train, y_train)
+# for i, sentence in enumerate(X_train):
+#     if len(sentence) <=30:
+#         X_train[i] = ((30-len(sentence)) * [0] + sentence)
+#     elif len(sentence) > 30:
+#         X_train[i] = sentence[:30]
+#
+# # Random Forest
+# random_forest = RandomForestClassifier(n_estimators=200)
+# random_forest.fit(X_train, y_train)
 
 # model_dt = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
 # model_dt.fit(X_train, y_train)
@@ -235,33 +309,69 @@ random_forest.fit(X_train, y_train)
 # SVM.fit(X_train, y_train)
 
 
-tokenized_j = [preprocess(message) for message in justificationstwo]
-bow_j = Counter([j for i in tokenized_j for j in i])
-freqs_j = {key: value/len(tokenized_j) for key, value in bow_j.items()}
-low_cutoff_j = 0.00029
-high_cutoff_j = 5
-K_most_common_j = [x[0] for x in bow_j.most_common(high_cutoff_j)]
-filtered_words_j = [word for word in freqs_j if word not in K_most_common_j]
-vocab_j = {word: i for i, word in enumerate(filtered_words_j, 1)}
-id2vocab_j = {i: word for word, i in vocab_j.items()}
-filtered_j = [[word for word in message if word in vocab_j] for message in tokenized_j]
-# This part might need to be redone as I didn't use the balancing function
-token_ids_j = [[vocab_j[word] for word in message] for message in filtered_j]
+# tokenized_j = [preprocess(message) for message in justificationstwo]
+# bow_j = Counter([j for i in tokenized_j for j in i])
+# freqs_j = {key: value/len(tokenized_j) for key, value in bow_j.items()}
+# low_cutoff_j = 0.00029
+# high_cutoff_j = 5
+# K_most_common_j = [x[0] for x in bow_j.most_common(high_cutoff_j)]
+# filtered_words_j = [word for word in freqs_j if word not in K_most_common_j]
+# vocab_j = {word: i for i, word in enumerate(filtered_words_j, 1)}
+# id2vocab_j = {i: word for word, i in vocab_j.items()}
+# filtered_j = [[word for word in message if word in vocab_j] for message in tokenized_j]
+# # This part might need to be redone as I didn't use the balancing function
+# token_ids_j = [[vocab_j[word] for word in message] for message in filtered_j]
+#
+# X_test = token_ids_j
+# for i, sentence in enumerate(X_test):
+#     if len(sentence) <=30:
+#         X_test[i] = ((30-len(sentence)) * [0] + sentence)
+#     elif len(sentence) > 30:
+#         X_test[i] = sentence[:30]
 
-X_test = token_ids_j
-for i, sentence in enumerate(X_test):
-    if len(sentence) <=30:
-        X_test[i] = ((30-len(sentence)) * [0] + sentence)
-    elif len(sentence) > 30:
-        X_test[i] = sentence[:30]
+# Unit test for functions
+# X_test_2 = create_X_train_test(justificationstwo)
+# print(X_test == X_test_2)
 
-justifications_predictions_rf = random_forest.predict(X_test)
-print(justificationstwo)
-print(justifications_predictions_rf)
-# Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
-print((justifications_predictions_rf/2).mean())
-# Unweighted calculated using mode instead of mean:
-print(stats.mode(justifications_predictions_rf/2)[0][0])
+# Below are the main functions for getting sentiment scores
+def get_weighted_sentiment(model, clustering_model=['Kmeans','Agglomerative']):
+    corpus = read_file()
+    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
+    X_test = create_X_train_test(justifications)
+    justifications_predictions = model.predict(X_test)
+    # print(justificationstwo)
+    # print(justifications_predictions)
+    # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
+    # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
+    justification_weighted_scores = (justifications_predictions/2).mean()
+    # print(justification_weighted_scores)
+    return(justification_weighted_scores)
+
+def get_unweighted_sentiment(model, clustering_model=['Kmeans','Agglomerative']):
+    corpus = read_file()
+    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
+    X_test = create_X_train_test(justifications)
+    justifications_predictions = model.predict(X_test)
+    # print(justificationstwo)
+    # print(justifications_predictions)
+    # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
+    # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
+    justification_unweighted_scores = stats.mode(justifications_predictions/2)[0][0]
+    # print(justification_unweighted_scores)
+    return(justification_unweighted_scores)
+
+weighted = get_weighted_sentiment(model, clustering_model='Agglomerative')
+unweighted = get_unweighted_sentiment(model, clustering_model='Agglomerative')
+print(weighted)
+print(unweighted)
+
+# justifications_predictions_rf = random_forest.predict(X_test)
+# print(justificationstwo)
+# print(justifications_predictions_rf)
+# # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
+# print((justifications_predictions_rf/2).mean())
+# # Unweighted calculated using mode instead of mean:
+# print(stats.mode(justifications_predictions_rf/2)[0][0])
 
 # justifications_predictions_dt = model_dt.predict(X_test)
 # print(justifications_predictions_dt)
