@@ -54,6 +54,8 @@ nltk.download('wordnet')
 # opening the file, processing and tokenising it and then fitting it to a model
 # with the final model being returned.
 
+# Below function takes in user input for file name (final version to use)
+
 # def read_file():
 #     """
 #     Args:
@@ -69,6 +71,7 @@ nltk.download('wordnet')
 # # file to be read in line 29 is: 'JWN_Nordstrom_MDNA_overview_2017.txt'
 # corpustwo = read_file()
 
+# Below function is just for unit testing, reads in single Nordstrom MD&A file
 def read_file():
     """
     Args:
