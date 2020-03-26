@@ -84,6 +84,7 @@ def read_file_nltk():
 # file to be read in line 29 is: 'JWN_Nordstrom_MDNA_overview_2017.txt'
 corpustwo = read_file_nltk()
 # NLTK's sent_tokenizer works much better than the custom split_into_sentences function above
+# Might need to download punkt to make it work: nltk.download('punkt')
 
 # def read_file_custom():
 #     """
@@ -106,5 +107,5 @@ corpustwo = read_file_nltk()
 # tokenize.sent_tokenize(p)
 # ['Good morning Dr. Adams.', 'The patient is waiting for you in room number 3.']
 
-# print(corpustwo)
+print(corpustwo)
 # print(corpusthree)
