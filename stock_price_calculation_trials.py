@@ -6,7 +6,7 @@
 
 
 # import datetime
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,11 +27,15 @@ def add_years(d, years):
 def add_months(d, num_months):
     return d + relativedelta(months=+num_months)
 
+def add_days(d, num_days):
+    return d + timedelta(days=num_days)
+
+
 
 # date2 = datetime(2018,6,14)
 # date3 = datetime(2018,2,1)
-# Unit tests for adding years and months functions, both work
-# print(add_years(date2, 1))
+# # Unit tests for adding years and months functions, both work
+# print(add_days(date2, 1))
 # print(add_months(date2, 9))
 # print(date2)
 # print(date3)
