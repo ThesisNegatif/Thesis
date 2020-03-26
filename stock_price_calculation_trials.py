@@ -6,7 +6,6 @@
 
 
 # import datetime
-# from pandas.io.data import DataReader
 from datetime import datetime, date
 import pandas as pd
 import numpy as np
@@ -29,17 +28,39 @@ def add_months(d, num_months):
     return d + relativedelta(months=+num_months)
 
 
-date2 = datetime(2018,6,14)
-date3 = datetime(2018,2,1)
+# date2 = datetime(2018,6,14)
+# date3 = datetime(2018,2,1)
+# Unit tests for adding years and months functions, both work
 # print(add_years(date2, 1))
-print(add_months(date2, 9))
-print(date2)
-print(date3)
+# print(add_months(date2, 9))
+# print(date2)
+# print(date3)
 
 # google = pdr.get_data_yahoo("GOOGL",
 #                             start = "2018-02-01",
 #                             end = "2018-02-01")
 
-google = pdr.get_data_yahoo("GOOGL", start = datetime(2018,2,1), end = datetime(2018,2,1))
-print(google.columns)
-print(google.iloc[0]['Adj Close'])
+def get_stock_adj_close(ticker, chosen_date):
+    stock_df = pdr.get_data_yahoo(ticker, start = chosen_date, end = chosen_date)
+    return stock_df.iloc[0]['Adj Close']
+
+# date_google = datetime(2018,2,1)
+# # Unit test
+# print(get_stock_adj_close("GOOGL", date_google))
+#
+# google = pdr.get_data_yahoo("GOOGL", start = datetime(2018,2,1), end = datetime(2018,2,1))
+# # print(google.columns)
+# print(google.iloc[0]['Adj Close'])
+#
+# google2 = pdr.get_data_yahoo("GOOGL", start = datetime(2019,2,1), end = datetime(2019,2,1))
+# # print(google.columns)
+# print(google2.iloc[0]['Adj Close'])
+#
+# google3 = pdr.get_data_yahoo("GOOGL", start = add_years(date_google, 1), end = add_years(date_google, 1))
+# # print(google.columns)
+# print(google3.iloc[0]['Adj Close'])
+
+# Should percent change be multiplied by 100 for correlation or better to leave as a decimal?
+def percent_change(old, new):
+    return ((new-old)/old)*100
+# print(percent_change(google.iloc[0]['Adj Close'],google3.iloc[0]['Adj Close']))

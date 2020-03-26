@@ -34,7 +34,7 @@ from tqdm import tqdm
 import collections
 from scipy import stats
 import pickle
-nltk.download('wordnet')
+nltk.download('wordnet') #consider commenting this out because it might already be downloaded
 
 
 # DONE/To-do: Move read txt function out into a separate function from justification mining
