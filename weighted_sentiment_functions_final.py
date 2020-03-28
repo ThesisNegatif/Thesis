@@ -92,7 +92,7 @@ def read_file():
 def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative'], num_clusters=5, save_data=False):
     """
     Args:
-        corpus(str): Text corpus on which to perform Justification Mining.
+        string_text(str): Text on which to perform Justification Mining.
         clustering_model(str): Clustering model to use. Options are 'Kmeans' and 'Agglomerative'.
         num_clusters(int): Number of clusters returned by clustering models. Defaults to 5.
         save_data(bool): Whether to save Pandas dataframes of both the full data and max cosines
@@ -222,7 +222,7 @@ def create_X_train_test(messages):
             X_train_test[i] = ((30-len(sentence)) * [0] + sentence)
         elif len(sentence) > 30:
             X_train_test[i] = sentence[:30]
-    return(X_train_test)
+    return X_train_test
 
 def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
     data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
@@ -259,7 +259,7 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
     elif classifier_model=='SVM':
         model = SVC()
         model.fit(X_train, y_train)
-    return(model)
+    return model
 
 # # Fit the model on training set
 # model = LogisticRegression()
@@ -347,10 +347,43 @@ def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerat
     # print(justifications_predictions)
     # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
     # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
-    justification_weighted_scores = (justifications_predictions/2).mean()
+    justification_weighted_score = (justifications_predictions/2.0).mean()
     # print(justification_weighted_scores)
-    return(justification_weighted_scores)
+    return justification_weighted_score
 
+# Below 2 functions are for making predictions on each ind sentence, but it ends up being the same as the other 2 functions
+# Moreover, the maths cannot be done after because of `TypeError: unsupported operand type(s) for /: 'list' and 'int'`
+# def trial_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
+#     # corpus = read_file()
+#     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
+#     X_test = create_X_train_test(justifications)
+#     predictions = []
+#     for sentence in X_test:
+#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
+#         predictions.append(prediction[0])
+#     print(predictions)
+#     # justification_weighted_scores = (predictions/2).mean()
+#     # print(justification_weighted_scores)
+#     return predictions
+#
+# def trial_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
+#     # corpus = read_file()
+#     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
+#     X_test = create_X_train_test(justifications)
+#     predictions = []
+#     for sentence in X_test:
+#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
+#         predictions.append(prediction[0])
+#     justification_unweighted_scores = stats.mode(predictions/2)[0][0]
+#     # print(justification_weighted_scores)
+#     return justification_unweighted_scores
+
+# Might need to modify this, instead round each value maybe?
+# In regular sent analysis you get 0, 0.5, 1. With averaging justifications you get between 0 and 1, i.e. scaled/weighted.
+# Below is more like weighted mode aggregated. Whereas above 'weighted' function is like weighted mean aggregated.
+# But mode doesn't make much sense because it gets rid of the weight, so it is more like checking if 5 mined justifications can
+# capture the full sentiment of the entire document.
+# Read what you wrote in your thesis and then clarify all these terms
 def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
@@ -360,9 +393,72 @@ def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomer
     # print(justifications_predictions)
     # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
     # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
-    justification_unweighted_scores = stats.mode(justifications_predictions/2)[0][0]
+    justification_unweighted_score = stats.mode(justifications_predictions/2.0)[0][0]
     # print(justification_unweighted_scores)
-    return(justification_unweighted_scores)
+    return justification_unweighted_score
+
+# # Cannot get below function to work, cannot figure out a way to instantiate predictions as an np array
+# def trial_full_sentiment(corpus, model):
+#     sentences = tokenize.sent_tokenize(corpus)
+#     X_test = create_X_train_test(sentences)
+#     predictions = np.empty_like(X_test)
+#     for i, sentence in enumerate(X_test):
+#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
+#         predictions[i] = prediction[0]
+#     print(predictions)
+#     full_score = stats.mode(predictions)[0]
+#     return full_score
+#
+# # Below works, but same as the other method, and less concise.
+# def trial_full_sentiment2(corpus, model):
+#     sentences = tokenize.sent_tokenize(corpus)
+#     X_test = create_X_train_test(sentences)
+#     predictions = []
+#     for sentence in X_test:
+#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
+#         predictions.append(prediction[0])
+#     print(predictions)
+#     full_score = stats.mode(predictions)[0]
+#     return full_score
+
+def get_full_sentiment_mean_unrounded(corpus, model):
+    sentences = tokenize.sent_tokenize(corpus)
+    X_test = create_X_train_test(sentences)
+    predictions = model.predict(X_test)
+    # print(predictions)
+    full_score_mean_unrounded = (predictions/2.0).mean()
+    return full_score_mean_unrounded
+
+def get_full_sentiment_mean(corpus, model):
+    sentences = tokenize.sent_tokenize(corpus)
+    X_test = create_X_train_test(sentences)
+    predictions = model.predict(X_test)
+    # print(predictions)
+    full_score_mean = (predictions/2.0).mean().round()
+    return full_score_mean
+
+def get_full_sentiment_mode(corpus, model):
+    sentences = tokenize.sent_tokenize(corpus)
+    X_test = create_X_train_test(sentences)
+    predictions = model.predict(X_test)
+    # print(predictions)
+    full_score_mode = stats.mode(predictions/2.0)[0][0]
+    return full_score_mode
+
+# ##################################
+# #y_test_pred_10k = model_dt.predict(X_test10k)
+# y_test_pred_10k = []
+# for i, document in enumerate(X_test10k):
+#     temp_dt_y = model_dt.predict(document)
+# #     y_test_pred_10k.append(temp_dt_y.mean().round())
+#     y_test_pred_10k.append(stats.mode(temp_dt_y)[0])
+#
+# predictions_rf10k = []
+# for i, document in enumerate(X_test10k):
+#     temp_rf_y = random_forest.predict(document)
+#     predictions_rf10k.append(temp_rf_y.mean().round())
+# #     predictions_rf10k.append(stats.mode(temp_rf_y)[0])
+# ###################################
 
 # Unit tests for above two functions
 # weighted = get_weighted_sentiment(model, clustering_model='Agglomerative')
