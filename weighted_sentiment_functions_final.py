@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import AgglomerativeClustering
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN, MeanShift
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
@@ -89,7 +89,7 @@ def read_file():
 
 
 # Function to be made into a class is below.
-def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative'], num_clusters=5, save_data=False):
+def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], num_clusters=5, save_data=False):
     """
     Args:
         string_text(str): Text on which to perform Justification Mining.
@@ -119,6 +119,24 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative'],
         clustering_model.fit(corpus_embeddings)
         cluster_assignment = clustering_model.labels_
         clustered_embeddings = [[] for i in range(num_clusters)]
+        for sentence_id, cluster_id in enumerate(cluster_assignment):
+            clustered_embeddings[cluster_id].append(corpus_embeddings[sentence_id])
+        cluster_centres = [np.mean(cluster, axis=0) for cluster in clustered_embeddings]
+    elif clustering_model=='MeanShift':
+        clustering_model = MeanShift()
+        clustering_model.fit(corpus_embeddings)
+        cluster_assignment = clustering_model.labels_
+        cluster_centres = clustering_model.cluster_centers_
+    elif clustering_model=='DBSCAN':
+        clustering_model = DBSCAN(eps=0.5)
+        clustering_model.fit(corpus_embeddings)
+        cluster_assignment = clustering_model.labels_
+        # Note: because -1 is for noisy samples, it is difficult to use DBSCAN without a random noisy cluster returned
+        # new_array = cluster_assignment[cluster_assignment != -1]
+        # number_of_clusters = len(set(new_array))
+        # cluster_assignment = cluster_assignment[cluster_assignment != -1]
+        number_of_clusters = len(set(cluster_assignment))
+        clustered_embeddings = [[] for i in range(number_of_clusters)]
         for sentence_id, cluster_id in enumerate(cluster_assignment):
             clustered_embeddings[cluster_id].append(corpus_embeddings[sentence_id])
         cluster_centres = [np.mean(cluster, axis=0) for cluster in clustered_embeddings]
@@ -338,7 +356,7 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
 # print(X_test == X_test_2)
 
 # Below are the main functions for getting sentiment scores
-def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
+def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
     X_test = create_X_train_test(justifications)
@@ -384,7 +402,7 @@ def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerat
 # But mode doesn't make much sense because it gets rid of the weight, so it is more like checking if 5 mined justifications can
 # capture the full sentiment of the entire document.
 # Read what you wrote in your thesis and then clarify all these terms
-def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
+def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
     X_test = create_X_train_test(justifications)
