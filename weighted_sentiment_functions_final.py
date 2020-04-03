@@ -166,9 +166,9 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','
         new_df.to_csv('new_df.csv')
 
     # Print Clusters
-    clustered_sentences = [[] for i in range(num_clusters)]
-    for sentence_id, cluster_id in enumerate(cluster_assignment):
-        clustered_sentences[cluster_id].append(corpus[sentence_id])
+    # clustered_sentences = [[] for i in range(num_clusters)]
+    # for sentence_id, cluster_id in enumerate(cluster_assignment):
+    #     clustered_sentences[cluster_id].append(corpus[sentence_id])
         #print(cluster_id)
     #print(clustered_sentences)
     # for i, cluster in enumerate(clustered_sentences):
