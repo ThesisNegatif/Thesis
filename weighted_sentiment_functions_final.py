@@ -100,6 +100,8 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','
     Returns:
         justifications(list): Full list of justification sentences returned by the miner.
     """
+    # To-do: Include processing steps here if required
+
     # Split Sentences
     corpus = tokenize.sent_tokenize(string_text)
     # Extract sentence embeddings
@@ -223,11 +225,12 @@ def preprocess(message):
 # Make below into a new function called def numeric_tokenize()
 def create_X_train_test(messages):
     tokenized = [preprocess(message) for message in messages]
-    bow = Counter([j for i in tokenized for j in i])
-    freqs = {key: value/len(tokenized) for key, value in bow.items()}
+    bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order?
+    # Try both ways above on some dummy data in jupyter
+    freqs = {key: value/len(tokenized) for key, value in bow.items()} #keys are the words in the vocab, values are the count of those words
     low_cutoff = 0.00029
     high_cutoff = 5
-    K_most_common = [x[0] for x in bow.most_common(high_cutoff)]
+    K_most_common = [x[0] for x in bow.most_common(high_cutoff)] #most_common() is a method in collections.Counter
     filtered_words = [word for word in freqs if word not in K_most_common]
     vocab = {word: i for i, word in enumerate(filtered_words, 1)}
     id2vocab = {i: word for word, i in vocab.items()}
