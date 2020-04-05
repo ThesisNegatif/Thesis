@@ -223,7 +223,7 @@ def preprocess(message):
     return tokens
 
 # Make below into a new function called def numeric_tokenize()
-def create_X_train_test(messages):
+def create_X_train(messages):
     tokenized = [preprocess(message) for message in messages]
     bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order? No, it raises NameError
     # Try both ways above on some dummy data in jupyter
@@ -235,16 +235,48 @@ def create_X_train_test(messages):
     filtered_words = [word for word in freqs if word not in K_most_common]
     vocab = {word: i for i, word in enumerate(filtered_words, 1)}
     id2vocab = {i: word for word, i in vocab.items()}
-    filtered = [[word for word in message if word in vocab] for message in tokenized]
+    filtered = [[word for word in message if word in vocab] for message in tokenized] # Here vocab is referring to vocab.keys()
     # This part might need to be redone as I didn't use the balancing function
     token_ids = [[vocab[word] for word in message] for message in filtered]
-    X_train_test = token_ids
-    for i, sentence in enumerate(X_train_test):
+    X_train = token_ids
+    for i, sentence in enumerate(X_train):
         if len(sentence) <=30:
-            X_train_test[i] = ((30-len(sentence)) * [0] + sentence)
+            X_train[i] = ((30-len(sentence)) * [0] + sentence)
         elif len(sentence) > 30:
-            X_train_test[i] = sentence[:30]
-    return bow, X_train_test
+            X_train[i] = sentence[:30]
+    return vocab, X_train
+
+def create_X_test(sentences):
+    data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
+    list_data = []
+    for index, row in data_csv.iterrows():
+        dictionary_data = {}
+        dictionary_data['message_body'] = row['sentence']
+        if row['sentiment'] == 'positive':
+             dictionary_data['sentiment'] = 2
+        elif row['sentiment'] == 'negative':
+             dictionary_data['sentiment'] = 0
+        else:
+             dictionary_data['sentiment'] = 1 # For neutral sentiment
+        list_data.append(dictionary_data)
+    dictionary_data = {}
+    dictionary_data['data'] = list_data
+    messages = [sentence['message_body'] for sentence in dictionary_data['data']]
+    sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
+    vocab, X_train = create_X_train(messages)
+
+    tokenized = [preprocess(sentence) for sentence in sentences]
+    filtered = [[word for word in sentence if word in vocab.keys()] for sentence in tokenized] # X_test filtered to only words in training vocab
+    # Alternate method with functional programming:
+    # filtered = [list(filter(lambda a: a in vocab.keys(), sentence)) for sentence in tokenized]
+    token_ids = [[vocab[word] for word in sentence] for sentence in filtered] # Numericise data
+    X_test = token_ids
+    for i, sentence in enumerate(X_test):
+        if len(sentence) <=30:
+            X_test[i] = ((30-len(sentence)) * [0] + sentence)
+        elif len(sentence) > 30:
+            X_test[i] = sentence[:30]
+    return X_test
 
 def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
     data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
@@ -267,7 +299,7 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
 
     messages = [sentence['message_body'] for sentence in dictionary_data['data']]
     sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-    X_train = create_X_train_test(messages)
+    vocab, X_train = create_X_train(messages)
     y_train = sentiments
     if classifier_model=='Decision_Tree':
         model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
@@ -363,7 +395,7 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
 def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    X_test = create_X_train_test(justifications)
+    X_test = create_X_test(justifications)
     justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
@@ -409,7 +441,7 @@ def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerat
 def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    X_test = create_X_train_test(justifications)
+    X_test = create_X_test(justifications)
     justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
@@ -445,7 +477,7 @@ def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomer
 
 def get_full_sentiment_mean_unrounded(corpus, model):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_train_test(sentences)
+    X_test = create_X_test(sentences)
     predictions = model.predict(X_test)
     # print(predictions)
     full_score_mean_unrounded = (predictions/2.0).mean()
@@ -453,7 +485,7 @@ def get_full_sentiment_mean_unrounded(corpus, model):
 
 def get_full_sentiment_mean(corpus, model):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_train_test(sentences)
+    X_test = create_X_test(sentences)
     predictions = model.predict(X_test)
     # print(predictions)
     full_score_mean = (predictions/2.0).mean().round()
@@ -461,7 +493,7 @@ def get_full_sentiment_mean(corpus, model):
 
 def get_full_sentiment_mode(corpus, model):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_train_test(sentences)
+    X_test = create_X_test(sentences)
     predictions = model.predict(X_test)
     # print(predictions)
     full_score_mode = stats.mode(predictions/2.0)[0][0]
