@@ -225,8 +225,9 @@ def preprocess(message):
 # Make below into a new function called def numeric_tokenize()
 def create_X_train_test(messages):
     tokenized = [preprocess(message) for message in messages]
-    bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order?
+    bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order? No, it raises NameError
     # Try both ways above on some dummy data in jupyter
+    # For X_test creation, remove the bow=Counter statement above and instead filter tokenized_test then continue with functions below.
     freqs = {key: value/len(tokenized) for key, value in bow.items()} #keys are the words in the vocab, values are the count of those words
     low_cutoff = 0.00029
     high_cutoff = 5
@@ -243,7 +244,7 @@ def create_X_train_test(messages):
             X_train_test[i] = ((30-len(sentence)) * [0] + sentence)
         elif len(sentence) > 30:
             X_train_test[i] = sentence[:30]
-    return X_train_test
+    return bow, X_train_test
 
 def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
     data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
