@@ -223,30 +223,7 @@ def preprocess(message):
     return tokens
 
 # Make below into a new function called def numeric_tokenize()
-def create_X_train(messages):
-    tokenized = [preprocess(message) for message in messages]
-    bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order? No, it raises NameError
-    # Try both ways above on some dummy data in jupyter
-    # For X_test creation, remove the bow=Counter statement above and instead filter tokenized_test then continue with functions below.
-    freqs = {key: value/len(tokenized) for key, value in bow.items()} #keys are the words in the vocab, values are the count of those words
-    low_cutoff = 0.00029
-    high_cutoff = 5
-    K_most_common = [x[0] for x in bow.most_common(high_cutoff)] #most_common() is a method in collections.Counter
-    filtered_words = [word for word in freqs if word not in K_most_common]
-    vocab = {word: i for i, word in enumerate(filtered_words, 1)}
-    id2vocab = {i: word for word, i in vocab.items()}
-    filtered = [[word for word in message if word in vocab] for message in tokenized] # Here vocab is referring to vocab.keys()
-    # This part might need to be redone as I didn't use the balancing function
-    token_ids = [[vocab[word] for word in message] for message in filtered]
-    X_train = token_ids
-    for i, sentence in enumerate(X_train):
-        if len(sentence) <=30:
-            X_train[i] = ((30-len(sentence)) * [0] + sentence)
-        elif len(sentence) > 30:
-            X_train[i] = sentence[:30]
-    return vocab, X_train
-
-def create_X_test(sentences):
+def create_X_train():
     data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
     list_data = []
     for index, row in data_csv.iterrows():
@@ -263,14 +240,73 @@ def create_X_test(sentences):
     dictionary_data['data'] = list_data
     messages = [sentence['message_body'] for sentence in dictionary_data['data']]
     sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-    vocab, X_train = create_X_train(messages)
+
+    tokenized = [preprocess(message) for message in messages]
+    bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order? No, it raises NameError
+    # Try both ways above on some dummy data in jupyter
+    # For X_test creation, remove the bow=Counter statement above and instead filter tokenized_test then continue with functions below.
+    freqs = {key: value/len(tokenized) for key, value in bow.items()} #keys are the words in the vocab, values are the count of those words
+    low_cutoff = 0.00029
+    high_cutoff = 5
+    K_most_common = [x[0] for x in bow.most_common(high_cutoff)] #most_common() is a method in collections.Counter
+    filtered_words = [word for word in freqs if word not in K_most_common]
+    vocab = {word: i for i, word in enumerate(filtered_words, 1)}
+    id2vocab = {i: word for word, i in vocab.items()}
+    filtered = [[word for word in message if word in vocab] for message in tokenized] # Here vocab is referring to vocab.keys()
+    # This part might need to be redone as I didn't use the balancing function
+    # Balancing training data due to large number of neutral sentences
+    balanced = {'messages': [], 'sentiments':[]}
+    n_neutral = sum(1 for each in sentiments if each == 1)
+    N_examples = len(sentiments)
+    # print(n_neutral/N_examples)
+    keep_prob = (N_examples - n_neutral)/2/n_neutral
+    # print(keep_prob)
+    for idx, sentiment in enumerate(sentiments):
+        message = filtered[idx]
+        if len(message) == 0:
+            # skip this sentence because it has length zero
+            continue
+        elif sentiment != 1 or random.random() < keep_prob:
+            balanced['messages'].append(message)
+            balanced['sentiments'].append(sentiment)
+
+    token_ids = [[vocab[word] for word in message] for message in balanced['messages']]
+    sentiments_balanced = balanced['sentiments']
+    X_train = token_ids
+    for i, sentence in enumerate(X_train):
+        if len(sentence) <=30:
+            X_train[i] = ((30-len(sentence)) * [0] + sentence)
+        elif len(sentence) > 30:
+            X_train[i] = sentence[:30]
+    return vocab, X_train, sentiments_balanced
+
+def create_X_test(sentences):
+    # data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
+    # list_data = []
+    # for index, row in data_csv.iterrows():
+    #     dictionary_data = {}
+    #     dictionary_data['message_body'] = row['sentence']
+    #     if row['sentiment'] == 'positive':
+    #          dictionary_data['sentiment'] = 2
+    #     elif row['sentiment'] == 'negative':
+    #          dictionary_data['sentiment'] = 0
+    #     else:
+    #          dictionary_data['sentiment'] = 1 # For neutral sentiment
+    #     list_data.append(dictionary_data)
+    # dictionary_data = {}
+    # dictionary_data['data'] = list_data
+    # messages = [sentence['message_body'] for sentence in dictionary_data['data']]
+    # sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
+    vocab, X_train, sentiments = create_X_train()
 
     tokenized = [preprocess(sentence) for sentence in sentences]
     filtered = [[word for word in sentence if word in vocab.keys()] for sentence in tokenized] # X_test filtered to only words in training vocab
     # Alternate method with functional programming:
     # filtered = [list(filter(lambda a: a in vocab.keys(), sentence)) for sentence in tokenized]
     token_ids = [[vocab[word] for word in sentence] for sentence in filtered] # Numericise data
-    X_test = token_ids
+    # Remove short sentences in X_test
+    token_ids_filtered = [sentence for sentence in token_ids if len(sentence)>15]
+    X_test = token_ids_filtered
     for i, sentence in enumerate(X_test):
         if len(sentence) <=30:
             X_test[i] = ((30-len(sentence)) * [0] + sentence)
@@ -279,27 +315,27 @@ def create_X_test(sentences):
     return X_test
 
 def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
-    data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
-
-    list_data = []
-    for index, row in data_csv.iterrows():
-        dictionary_data = {}
-        dictionary_data['message_body'] = row['sentence']
-        if row['sentiment'] == 'positive':
-             dictionary_data['sentiment'] = 2
-        elif row['sentiment'] == 'negative':
-             dictionary_data['sentiment'] = 0
-        else:
-             dictionary_data['sentiment'] = 1
-        #dictionary_data['sentiment'] = row['sentiment']
-        list_data.append(dictionary_data)
-
-    dictionary_data = {}
-    dictionary_data['data'] = list_data
-
-    messages = [sentence['message_body'] for sentence in dictionary_data['data']]
-    sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-    vocab, X_train = create_X_train(messages)
+    # data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
+    #
+    # list_data = []
+    # for index, row in data_csv.iterrows():
+    #     dictionary_data = {}
+    #     dictionary_data['message_body'] = row['sentence']
+    #     if row['sentiment'] == 'positive':
+    #          dictionary_data['sentiment'] = 2
+    #     elif row['sentiment'] == 'negative':
+    #          dictionary_data['sentiment'] = 0
+    #     else:
+    #          dictionary_data['sentiment'] = 1
+    #     #dictionary_data['sentiment'] = row['sentiment']
+    #     list_data.append(dictionary_data)
+    #
+    # dictionary_data = {}
+    # dictionary_data['data'] = list_data
+    #
+    # messages = [sentence['message_body'] for sentence in dictionary_data['data']]
+    # sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
+    vocab, X_train, sentiments = create_X_train()
     y_train = sentiments
     if classifier_model=='Decision_Tree':
         model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
