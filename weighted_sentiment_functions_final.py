@@ -272,6 +272,12 @@ def create_X_train():
 
     token_ids = [[vocab[word] for word in message] for message in balanced['messages']]
     sentiments_balanced = balanced['sentiments']
+    # Unit test:
+    unique, counts = np.unique(sentiments_balanced, return_counts=True)
+    print(np.asarray((unique, counts)).T)
+    print(np.mean(sentiments_balanced))
+    ##################
+    # Left padding and truncating to the same length
     X_train = token_ids
     for i, sentence in enumerate(X_train):
         if len(sentence) <=30:
@@ -280,7 +286,7 @@ def create_X_train():
             X_train[i] = sentence[:30]
     return vocab, X_train, sentiments_balanced
 
-def create_X_test(sentences):
+def create_X_test(sentences, vocab):
     # data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
     # list_data = []
     # for index, row in data_csv.iterrows():
@@ -297,16 +303,18 @@ def create_X_test(sentences):
     # dictionary_data['data'] = list_data
     # messages = [sentence['message_body'] for sentence in dictionary_data['data']]
     # sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-    vocab, X_train, sentiments = create_X_train()
+    # vocab, X_train, sentiments = create_X_train() # Just need vocab
 
     tokenized = [preprocess(sentence) for sentence in sentences]
     filtered = [[word for word in sentence if word in vocab.keys()] for sentence in tokenized] # X_test filtered to only words in training vocab
     # Alternate method with functional programming:
     # filtered = [list(filter(lambda a: a in vocab.keys(), sentence)) for sentence in tokenized]
     token_ids = [[vocab[word] for word in sentence] for sentence in filtered] # Numericise data
+    print('token ids:', token_ids)
     # Remove short sentences in X_test
-    token_ids_filtered = [sentence for sentence in token_ids if len(sentence)>15]
+    token_ids_filtered = [sentence for sentence in token_ids if len(sentence)>5]
     X_test = token_ids_filtered
+    print('X_test', X_test)
     for i, sentence in enumerate(X_test):
         if len(sentence) <=30:
             X_test[i] = ((30-len(sentence)) * [0] + sentence)
@@ -349,7 +357,7 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
     elif classifier_model=='SVM':
         model = SVC()
         model.fit(X_train, y_train)
-    return model
+    return model, vocab
 
 # # Fit the model on training set
 # model = LogisticRegression()
@@ -428,10 +436,10 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
 # print(X_test == X_test_2)
 
 # Below are the main functions for getting sentiment scores
-def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
+def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    X_test = create_X_test(justifications)
+    X_test = create_X_test(justifications, vocab)
     justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
@@ -474,10 +482,10 @@ def get_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerat
 # But mode doesn't make much sense because it gets rid of the weight, so it is more like checking if 5 mined justifications can
 # capture the full sentiment of the entire document.
 # Read what you wrote in your thesis and then clarify all these terms
-def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
+def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
     # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    X_test = create_X_test(justifications)
+    X_test = create_X_test(justifications, vocab)
     justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
@@ -511,25 +519,25 @@ def get_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomer
 #     full_score = stats.mode(predictions)[0]
 #     return full_score
 
-def get_full_sentiment_mean_unrounded(corpus, model):
+def get_full_sentiment_mean_unrounded(corpus, vocab, model):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_test(sentences)
+    X_test = create_X_test(sentences, vocab)
     predictions = model.predict(X_test)
     # print(predictions)
     full_score_mean_unrounded = (predictions/2.0).mean()
     return full_score_mean_unrounded
 
-def get_full_sentiment_mean(corpus, model):
+def get_full_sentiment_mean(corpus, vocab, model):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_test(sentences)
+    X_test = create_X_test(sentences, vocab)
     predictions = model.predict(X_test)
     # print(predictions)
     full_score_mean = (predictions/2.0).mean().round()
     return full_score_mean
 
-def get_full_sentiment_mode(corpus, model):
+def get_full_sentiment_mode(corpus, vocab, model):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_test(sentences)
+    X_test = create_X_test(sentences, vocab)
     predictions = model.predict(X_test)
     # print(predictions)
     full_score_mode = stats.mode(predictions/2.0)[0][0]
