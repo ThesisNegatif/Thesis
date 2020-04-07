@@ -182,25 +182,25 @@ def create_X_train():
     messages = [sentence['message_body'] for sentence in dictionary_data['data']]
     sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']] # This is returned as sentiments when not using balance function below
 
-    tokenized_unbalanced = [preprocess(message) for message in messages] # Previously called just tokenized
+    tokenized = [preprocess(message) for message in messages] # Previously called just tokenized or tokenized_unbalanced
 
-    # Balancing training data due to large number of neutral sentences
-    balanced = {'messages': [], 'sentiments':[]}
-    n_neutral = sum(1 for each in sentiments if each == 1)
-    N_examples = len(sentiments)
-    # print(n_neutral/N_examples)
-    keep_prob = (N_examples - n_neutral)/2/n_neutral
-    # print(keep_prob)
-    for idx, sentiment in enumerate(sentiments):
-        message = tokenized_unbalanced[idx]
-        if len(message) == 0:
-            # skip this sentence because it has length zero
-            continue
-        elif sentiment != 1 or random.random() < keep_prob:
-            balanced['messages'].append(message)
-            balanced['sentiments'].append(sentiment)
-    tokenized = balanced['messages']
-    sentiments_balanced = balanced['sentiments']
+    # # Balancing training data due to large number of neutral sentences
+    # balanced = {'messages': [], 'sentiments':[]}
+    # n_neutral = sum(1 for each in sentiments if each == 1)
+    # N_examples = len(sentiments)
+    # # print(n_neutral/N_examples)
+    # keep_prob = (N_examples - n_neutral)/2/n_neutral
+    # # print(keep_prob)
+    # for idx, sentiment in enumerate(sentiments):
+    #     message = tokenized_unbalanced[idx]
+    #     if len(message) == 0:
+    #         # skip this sentence because it has length zero
+    #         continue
+    #     elif sentiment != 1 or random.random() < keep_prob:
+    #         balanced['messages'].append(message)
+    #         balanced['sentiments'].append(sentiment)
+    # tokenized = balanced['messages']
+    # sentiments_balanced = balanced['sentiments']
 
     bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order? No, it raises NameError
     # Try both ways above on some dummy data in jupyter
@@ -214,12 +214,14 @@ def create_X_train():
     id2vocab = {i: word for word, i in vocab.items()}
     filtered = [[word for word in message if word in vocab] for message in tokenized] # Here vocab is referring to vocab.keys()
     token_ids = [[vocab[word] for word in message] for message in filtered]
-    sentiments_balanced = balanced['sentiments']
-    # Unit test:
-    unique, counts = np.unique(sentiments_balanced, return_counts=True)
-    print(np.asarray((unique, counts)).T)
-    print(np.mean(sentiments_balanced))
-    ##################
+
+    # sentiments_balanced = balanced['sentiments']
+    # # Unit test for balancing:
+    # unique, counts = np.unique(sentiments_balanced, return_counts=True)
+    # print(np.asarray((unique, counts)).T)
+    # print(np.mean(sentiments_balanced))
+    # ##################
+
     # Left padding and truncating to the same length
     X_train = token_ids
     for i, sentence in enumerate(X_train):
@@ -227,7 +229,7 @@ def create_X_train():
             X_train[i] = ((30-len(sentence)) * [0] + sentence)
         elif len(sentence) > 30:
             X_train[i] = sentence[:30]
-    return vocab, X_train, sentiments_balanced
+    return vocab, X_train, sentiments # or sentiments_balanced when using balancing function
 
 def create_X_test(sentences, vocab):
     tokenized = [preprocess(sentence) for sentence in sentences]
@@ -247,20 +249,20 @@ def create_X_test(sentences, vocab):
             X_test[i] = sentence[:30]
     return X_test
 
-def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
+def train_classifier(classifier_model=['Decision_Tree','Random_Forest', 'Naive_Bayes', 'SVM']):
     vocab, X_train, sentiments = create_X_train()
     y_train = sentiments
     if classifier_model=='Decision_Tree':
-        model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
+        model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2, class_weight="balanced")
         model.fit(X_train, y_train)
-    elif classifier_model=='Random_Forst':
-        model = RandomForestClassifier(n_estimators=200)
+    elif classifier_model=='Random_Forest':
+        model = RandomForestClassifier(n_estimators=200, class_weight="balanced")
         model.fit(X_train, y_train)
     elif classifier_model=='Naive_Bayes':
         model = MultinomialNB()
         model.fit(X_train, y_train)
     elif classifier_model=='SVM':
-        model = SVC()
+        model = SVC(class_weight='balanced')
         model.fit(X_train, y_train)
     return model, vocab
 
@@ -309,13 +311,13 @@ def create_X_test_embeddings(sentences):
     X_test_embeddings = corpus_embeddings
     return X_test_embeddings
 
-def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
+def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forest', 'Naive_Bayes', 'SVM']):
     X_train, sentiments = create_X_train_embeddings()
     y_train = sentiments
     if classifier_model=='Decision_Tree':
         model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
         model.fit(X_train, y_train)
-    elif classifier_model=='Random_Forst':
+    elif classifier_model=='Random_Forest':
         model = RandomForestClassifier(n_estimators=200)
         model.fit(X_train, y_train)
     elif classifier_model=='Naive_Bayes':
@@ -329,10 +331,14 @@ def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forst'
 
 
 # Below are the main functions for getting sentiment scores
-def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
+def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numerciser=['BoW','SBERT']):
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    X_test = create_X_test(justifications, vocab)
-    justifications_predictions = model.predict(X_test)
+    if numerciser=='BoW':
+        X_test = create_X_test(justifications, vocab)
+        justifications_predictions = model.predict(X_test)
+    elif numerciser=='SBERT':
+        X_test = create_X_test_embeddings(justifications)
+        justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
     # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
@@ -347,10 +353,14 @@ def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agg
 # But mode doesn't make much sense because it gets rid of the weight, so it is more like checking if 5 mined justifications can
 # capture the full sentiment of the entire document.
 # Read what you wrote in your thesis and then clarify all these terms
-def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
+def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numerciser=['BoW','SBERT']):
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    X_test = create_X_test(justifications, vocab)
-    justifications_predictions = model.predict(X_test)
+    if numerciser=='BoW':
+        X_test = create_X_test(justifications, vocab)
+        justifications_predictions = model.predict(X_test)
+    elif numerciser=='SBERT':
+        X_test = create_X_test_embeddings(justifications)
+        justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
     # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
@@ -359,26 +369,38 @@ def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','A
     # print(justification_unweighted_scores)
     return justification_unweighted_score
 
-def get_full_sentiment_mean_unrounded(corpus, vocab, model):
+def get_full_sentiment_mean_unrounded(corpus, vocab, model, numerciser=['BoW','SBERT']):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_test(sentences, vocab)
-    predictions = model.predict(X_test)
+    if numerciser=='BoW':
+        X_test = create_X_test(sentences, vocab)
+        predictions = model.predict(X_test)
+    elif numerciser=='SBERT':
+        X_test = create_X_test_embeddings(sentences)
+        predictions = model.predict(X_test)
     # print(predictions)
     full_score_mean_unrounded = (predictions/2.0).mean()
     return full_score_mean_unrounded
 
-def get_full_sentiment_mean(corpus, vocab, model):
+def get_full_sentiment_mean(corpus, vocab, model, numerciser=['BoW','SBERT']):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_test(sentences, vocab)
-    predictions = model.predict(X_test)
+    if numerciser=='BoW':
+        X_test = create_X_test(sentences, vocab)
+        predictions = model.predict(X_test)
+    elif numerciser=='SBERT':
+        X_test = create_X_test_embeddings(sentences)
+        predictions = model.predict(X_test)
     # print(predictions)
     full_score_mean = (predictions/2.0).mean().round()
     return full_score_mean
 
-def get_full_sentiment_mode(corpus, vocab, model):
+def get_full_sentiment_mode(corpus, vocab, model, numerciser=['BoW','SBERT']):
     sentences = tokenize.sent_tokenize(corpus)
-    X_test = create_X_test(sentences, vocab)
-    predictions = model.predict(X_test)
+    if numerciser=='BoW':
+        X_test = create_X_test(sentences, vocab)
+        predictions = model.predict(X_test)
+    elif numerciser=='SBERT':
+        X_test = create_X_test_embeddings(sentences)
+        predictions = model.predict(X_test)
     # print(predictions)
     full_score_mode = stats.mode(predictions/2.0)[0][0]
     return full_score_mode
