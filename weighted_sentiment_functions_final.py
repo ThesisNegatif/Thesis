@@ -65,10 +65,11 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','
         justifications(list): Full list of justification sentences returned by the miner.
     """
     # To-do: Include processing steps here if required (not required)
-
+    # Email from Dr. Reimers says no processing beforehand is required.
     # Split Sentences
     corpus = tokenize.sent_tokenize(string_text)
     # Extract sentence embeddings
+    # Also try 'bert-base-nli-mean-tokens' instead of Wikipedia for comparison
     embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
     corpus_embeddings = embedder.encode(corpus)
 
@@ -179,7 +180,7 @@ def create_X_train():
     dictionary_data = {}
     dictionary_data['data'] = list_data
     messages = [sentence['message_body'] for sentence in dictionary_data['data']]
-    sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
+    sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']] # This is returned as sentiments when not using balance function below
 
     tokenized_unbalanced = [preprocess(message) for message in messages] # Previously called just tokenized
 
@@ -238,7 +239,7 @@ def create_X_test(sentences, vocab):
     # Remove short sentences in X_test
     token_ids_filtered = [sentence for sentence in token_ids if len(sentence)>5]
     X_test = token_ids_filtered
-    # print('X_test', X_test)
+    # print('X_test:', X_test)
     for i, sentence in enumerate(X_test):
         if len(sentence) <=30:
             X_test[i] = ((30-len(sentence)) * [0] + sentence)
@@ -263,7 +264,6 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
         model.fit(X_train, y_train)
     return model, vocab
 
-
 ###### THIS IS IMPORTANT FOR SAVING THE TRAINED MODEL #####
 # # Comment/Uncomment following 4 lines to retrain the classifier
 # trained_model = train_classifier(classifier_model='Random_Forst')
@@ -275,6 +275,57 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
 # filename = 'finalised_classifier_model.sav'
 # model = pickle.load(open(filename, 'rb'))
 ############################################################
+
+def create_X_train_embeddings():
+    data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
+    list_data = []
+    for index, row in data_csv.iterrows():
+        dictionary_data = {}
+        dictionary_data['message_body'] = row['sentence']
+        if row['sentiment'] == 'positive':
+             dictionary_data['sentiment'] = 2
+        elif row['sentiment'] == 'negative':
+             dictionary_data['sentiment'] = 0
+        else:
+             dictionary_data['sentiment'] = 1 # For neutral sentiment
+        list_data.append(dictionary_data)
+    dictionary_data = {}
+    dictionary_data['data'] = list_data
+    messages = [sentence['message_body'] for sentence in dictionary_data['data']]
+    sentiments_embeddings = [sentence['sentiment'] for sentence in dictionary_data['data']]
+
+    # Extract sentence embeddings
+    # Also try 'bert-base-nli-mean-tokens' instead of Wikipedia for comparison
+    embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    corpus_embeddings = embedder.encode(messages)
+    X_train_embeddings = corpus_embeddings
+    return X_train_embeddings, sentiments_embeddings
+
+def create_X_test_embeddings(sentences):
+    # Extract sentence embeddings
+    # Also try 'bert-base-nli-mean-tokens' instead of Wikipedia for comparison
+    embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    corpus_embeddings = embedder.encode(sentences)
+    X_test_embeddings = corpus_embeddings
+    return X_test_embeddings
+
+def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
+    X_train, sentiments = create_X_train_embeddings()
+    y_train = sentiments
+    if classifier_model=='Decision_Tree':
+        model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
+        model.fit(X_train, y_train)
+    elif classifier_model=='Random_Forst':
+        model = RandomForestClassifier(n_estimators=200)
+        model.fit(X_train, y_train)
+    elif classifier_model=='Naive_Bayes':
+        model = MultinomialNB()
+        model.fit(X_train, y_train)
+    elif classifier_model=='SVM':
+        model = SVC()
+        model.fit(X_train, y_train)
+    return model
+
 
 
 # Below are the main functions for getting sentiment scores
