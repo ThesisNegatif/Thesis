@@ -4,7 +4,6 @@ from sklearn.cluster import KMeans, DBSCAN, MeanShift
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
-
 import pandas as pd
 import json
 import nltk
@@ -37,7 +36,6 @@ import pickle
 nltk.download('wordnet') #consider commenting this out because it might already be downloaded
 from nltk import tokenize
 
-# DONE/To-do: Move read txt function out into a separate function from justification mining
 # Code to use this in python env is import justification_miners as jm // jm.JustificationMiner(arguments)
 # To-do: Want a way to retrieve cluster_centres, clusters, dataframe.head, justifications
 
@@ -54,40 +52,6 @@ from nltk import tokenize
 # opening the file, processing and tokenising it and then fitting it to a model
 # with the final model being returned.
 
-# Below function takes in user input for file name (final version to use)
-
-# def read_file():
-#     """
-#     Args:
-#         None
-#     Returns:
-#         corpus(str): Full text corpus read in as a string.
-#     """
-#     overview_file = input("Enter txt file name of data: ")
-#     with open(overview_file, 'r') as file:
-#         initial_corpus = file.read()
-#     corpus = initial_corpus.split('. ')
-#     return corpus
-# # file to be read in line 29 is: 'JWN_Nordstrom_MDNA_overview_2017.txt'
-# corpustwo = read_file()
-
-# Below function is just for unit testing, reads in single Nordstrom MD&A file
-def read_file():
-    """
-    Args:
-        None
-    Returns:
-        corpus(str): Full text corpus read in as a string.
-    """
-    #overview_file = input("Enter txt file name of data: ")
-    with open('JWN_Nordstrom_MDNA_overview_2017.txt', 'r') as file:
-        initial_corpus = file.read()
-    corpus = initial_corpus.split('. ')
-    return corpus
-# file to be read in line 29 is: 'JWN_Nordstrom_MDNA_overview_2017.txt'
-# corpustwo = read_file()
-
-
 # Function to be made into a class is below.
 def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], num_clusters=5, save_data=False):
     """
@@ -100,7 +64,7 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','
     Returns:
         justifications(list): Full list of justification sentences returned by the miner.
     """
-    # To-do: Include processing steps here if required
+    # To-do: Include processing steps here if required (not required)
 
     # Split Sentences
     corpus = tokenize.sent_tokenize(string_text)
@@ -180,30 +144,6 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','
 
     return justifications
 
-# justificationstwo = JustificationMiner(corpustwo, clustering_model='Agglomerative', num_clusters=5, save_data=False)
-
-# Train classifier
-# data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
-#
-# list_data = []
-# for index, row in data_csv.iterrows():
-#     dictionary_data = {}
-#     dictionary_data['message_body'] = row['sentence']
-#     if row['sentiment'] == 'positive':
-#          dictionary_data['sentiment'] = 2
-#     elif row['sentiment'] == 'negative':
-#          dictionary_data['sentiment'] = 0
-#     else:
-#          dictionary_data['sentiment'] = 1
-#     #dictionary_data['sentiment'] = row['sentiment']
-#     list_data.append(dictionary_data)
-#
-# dictionary_data = {}
-# dictionary_data['data'] = list_data
-#
-# messages = [sentence['message_body'] for sentence in dictionary_data['data']]
-# sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-# nltk.download('wordnet') - moved this to top imports
 
 def preprocess(message):
     """
@@ -241,7 +181,26 @@ def create_X_train():
     messages = [sentence['message_body'] for sentence in dictionary_data['data']]
     sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
 
-    tokenized = [preprocess(message) for message in messages]
+    tokenized_unbalanced = [preprocess(message) for message in messages] # Previously called just tokenized
+
+    # Balancing training data due to large number of neutral sentences
+    balanced = {'messages': [], 'sentiments':[]}
+    n_neutral = sum(1 for each in sentiments if each == 1)
+    N_examples = len(sentiments)
+    # print(n_neutral/N_examples)
+    keep_prob = (N_examples - n_neutral)/2/n_neutral
+    # print(keep_prob)
+    for idx, sentiment in enumerate(sentiments):
+        message = tokenized_unbalanced[idx]
+        if len(message) == 0:
+            # skip this sentence because it has length zero
+            continue
+        elif sentiment != 1 or random.random() < keep_prob:
+            balanced['messages'].append(message)
+            balanced['sentiments'].append(sentiment)
+    tokenized = balanced['messages']
+    sentiments_balanced = balanced['sentiments']
+
     bow = Counter([j for i in tokenized for j in i]) #[word for sentence in tokenized for word in sentence] Should the for loops be in reverse order? No, it raises NameError
     # Try both ways above on some dummy data in jupyter
     # For X_test creation, remove the bow=Counter statement above and instead filter tokenized_test then continue with functions below.
@@ -253,24 +212,7 @@ def create_X_train():
     vocab = {word: i for i, word in enumerate(filtered_words, 1)}
     id2vocab = {i: word for word, i in vocab.items()}
     filtered = [[word for word in message if word in vocab] for message in tokenized] # Here vocab is referring to vocab.keys()
-    # This part might need to be redone as I didn't use the balancing function
-    # Balancing training data due to large number of neutral sentences
-    balanced = {'messages': [], 'sentiments':[]}
-    n_neutral = sum(1 for each in sentiments if each == 1)
-    N_examples = len(sentiments)
-    # print(n_neutral/N_examples)
-    keep_prob = (N_examples - n_neutral)/2/n_neutral
-    # print(keep_prob)
-    for idx, sentiment in enumerate(sentiments):
-        message = filtered[idx]
-        if len(message) == 0:
-            # skip this sentence because it has length zero
-            continue
-        elif sentiment != 1 or random.random() < keep_prob:
-            balanced['messages'].append(message)
-            balanced['sentiments'].append(sentiment)
-
-    token_ids = [[vocab[word] for word in message] for message in balanced['messages']]
+    token_ids = [[vocab[word] for word in message] for message in filtered]
     sentiments_balanced = balanced['sentiments']
     # Unit test:
     unique, counts = np.unique(sentiments_balanced, return_counts=True)
@@ -287,34 +229,16 @@ def create_X_train():
     return vocab, X_train, sentiments_balanced
 
 def create_X_test(sentences, vocab):
-    # data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
-    # list_data = []
-    # for index, row in data_csv.iterrows():
-    #     dictionary_data = {}
-    #     dictionary_data['message_body'] = row['sentence']
-    #     if row['sentiment'] == 'positive':
-    #          dictionary_data['sentiment'] = 2
-    #     elif row['sentiment'] == 'negative':
-    #          dictionary_data['sentiment'] = 0
-    #     else:
-    #          dictionary_data['sentiment'] = 1 # For neutral sentiment
-    #     list_data.append(dictionary_data)
-    # dictionary_data = {}
-    # dictionary_data['data'] = list_data
-    # messages = [sentence['message_body'] for sentence in dictionary_data['data']]
-    # sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
-    # vocab, X_train, sentiments = create_X_train() # Just need vocab
-
     tokenized = [preprocess(sentence) for sentence in sentences]
     filtered = [[word for word in sentence if word in vocab.keys()] for sentence in tokenized] # X_test filtered to only words in training vocab
     # Alternate method with functional programming:
     # filtered = [list(filter(lambda a: a in vocab.keys(), sentence)) for sentence in tokenized]
     token_ids = [[vocab[word] for word in sentence] for sentence in filtered] # Numericise data
-    print('token ids:', token_ids)
+    # print('token ids:', token_ids)
     # Remove short sentences in X_test
     token_ids_filtered = [sentence for sentence in token_ids if len(sentence)>5]
     X_test = token_ids_filtered
-    print('X_test', X_test)
+    # print('X_test', X_test)
     for i, sentence in enumerate(X_test):
         if len(sentence) <=30:
             X_test[i] = ((30-len(sentence)) * [0] + sentence)
@@ -323,26 +247,6 @@ def create_X_test(sentences, vocab):
     return X_test
 
 def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Bayes', 'SVM']):
-    # data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
-    #
-    # list_data = []
-    # for index, row in data_csv.iterrows():
-    #     dictionary_data = {}
-    #     dictionary_data['message_body'] = row['sentence']
-    #     if row['sentiment'] == 'positive':
-    #          dictionary_data['sentiment'] = 2
-    #     elif row['sentiment'] == 'negative':
-    #          dictionary_data['sentiment'] = 0
-    #     else:
-    #          dictionary_data['sentiment'] = 1
-    #     #dictionary_data['sentiment'] = row['sentiment']
-    #     list_data.append(dictionary_data)
-    #
-    # dictionary_data = {}
-    # dictionary_data['data'] = list_data
-    #
-    # messages = [sentence['message_body'] for sentence in dictionary_data['data']]
-    # sentiments = [sentence['sentiment'] for sentence in dictionary_data['data']]
     vocab, X_train, sentiments = create_X_train()
     y_train = sentiments
     if classifier_model=='Decision_Tree':
@@ -359,9 +263,6 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
         model.fit(X_train, y_train)
     return model, vocab
 
-# # Fit the model on training set
-# model = LogisticRegression()
-# model.fit(X_train, Y_train)
 
 ###### THIS IS IMPORTANT FOR SAVING THE TRAINED MODEL #####
 # # Comment/Uncomment following 4 lines to retrain the classifier
@@ -375,69 +276,9 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forst', 'Naive_Ba
 # model = pickle.load(open(filename, 'rb'))
 ############################################################
 
-# X_train = token_ids
-# y_train = sentiments
-
-# Average for training data length is 16
-# avg_length = []
-# for sentence in X_train:
-#     avg_length.append(len(sentence))
-# print(len(avg_length))
-# print('average is:', mean(avg_length))
-# There's 450 sentences longer than len 25 and 170 longer than 30
-# long_length = []
-# for sentence in X_train:
-#     if len(sentence) > 30:
-#         long_length.append(len(sentence))
-# print(len(long_length))
-
-# for i, sentence in enumerate(X_train):
-#     if len(sentence) <=30:
-#         X_train[i] = ((30-len(sentence)) * [0] + sentence)
-#     elif len(sentence) > 30:
-#         X_train[i] = sentence[:30]
-#
-# # Random Forest
-# random_forest = RandomForestClassifier(n_estimators=200)
-# random_forest.fit(X_train, y_train)
-
-# model_dt = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
-# model_dt.fit(X_train, y_train)
-#
-# naive_bayes = MultinomialNB()
-# naive_bayes.fit(X_train, y_train)
-#
-# SVM = SVC()
-# SVM.fit(X_train, y_train)
-
-
-# tokenized_j = [preprocess(message) for message in justificationstwo]
-# bow_j = Counter([j for i in tokenized_j for j in i])
-# freqs_j = {key: value/len(tokenized_j) for key, value in bow_j.items()}
-# low_cutoff_j = 0.00029
-# high_cutoff_j = 5
-# K_most_common_j = [x[0] for x in bow_j.most_common(high_cutoff_j)]
-# filtered_words_j = [word for word in freqs_j if word not in K_most_common_j]
-# vocab_j = {word: i for i, word in enumerate(filtered_words_j, 1)}
-# id2vocab_j = {i: word for word, i in vocab_j.items()}
-# filtered_j = [[word for word in message if word in vocab_j] for message in tokenized_j]
-# # This part might need to be redone as I didn't use the balancing function
-# token_ids_j = [[vocab_j[word] for word in message] for message in filtered_j]
-#
-# X_test = token_ids_j
-# for i, sentence in enumerate(X_test):
-#     if len(sentence) <=30:
-#         X_test[i] = ((30-len(sentence)) * [0] + sentence)
-#     elif len(sentence) > 30:
-#         X_test[i] = sentence[:30]
-
-# Unit test for functions
-# X_test_2 = create_X_train_test(justificationstwo)
-# print(X_test == X_test_2)
 
 # Below are the main functions for getting sentiment scores
 def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
-    # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
     X_test = create_X_test(justifications, vocab)
     justifications_predictions = model.predict(X_test)
@@ -449,33 +290,6 @@ def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agg
     # print(justification_weighted_scores)
     return justification_weighted_score
 
-# Below 2 functions are for making predictions on each ind sentence, but it ends up being the same as the other 2 functions
-# Moreover, the maths cannot be done after because of `TypeError: unsupported operand type(s) for /: 'list' and 'int'`
-# def trial_weighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
-#     # corpus = read_file()
-#     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-#     X_test = create_X_train_test(justifications)
-#     predictions = []
-#     for sentence in X_test:
-#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
-#         predictions.append(prediction[0])
-#     print(predictions)
-#     # justification_weighted_scores = (predictions/2).mean()
-#     # print(justification_weighted_scores)
-#     return predictions
-#
-# def trial_unweighted_sentiment(corpus, model, clustering_model=['Kmeans','Agglomerative']):
-#     # corpus = read_file()
-#     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-#     X_test = create_X_train_test(justifications)
-#     predictions = []
-#     for sentence in X_test:
-#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
-#         predictions.append(prediction[0])
-#     justification_unweighted_scores = stats.mode(predictions/2)[0][0]
-#     # print(justification_weighted_scores)
-#     return justification_unweighted_scores
-
 # Might need to modify this, instead round each value maybe?
 # In regular sent analysis you get 0, 0.5, 1. With averaging justifications you get between 0 and 1, i.e. scaled/weighted.
 # Below is more like weighted mode aggregated. Whereas above 'weighted' function is like weighted mean aggregated.
@@ -483,7 +297,6 @@ def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agg
 # capture the full sentiment of the entire document.
 # Read what you wrote in your thesis and then clarify all these terms
 def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift']):
-    # corpus = read_file()
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
     X_test = create_X_test(justifications, vocab)
     justifications_predictions = model.predict(X_test)
@@ -494,30 +307,6 @@ def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','A
     justification_unweighted_score = stats.mode(justifications_predictions/2.0)[0][0]
     # print(justification_unweighted_scores)
     return justification_unweighted_score
-
-# # Cannot get below function to work, cannot figure out a way to instantiate predictions as an np array
-# def trial_full_sentiment(corpus, model):
-#     sentences = tokenize.sent_tokenize(corpus)
-#     X_test = create_X_train_test(sentences)
-#     predictions = np.empty_like(X_test)
-#     for i, sentence in enumerate(X_test):
-#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
-#         predictions[i] = prediction[0]
-#     print(predictions)
-#     full_score = stats.mode(predictions)[0]
-#     return full_score
-#
-# # Below works, but same as the other method, and less concise.
-# def trial_full_sentiment2(corpus, model):
-#     sentences = tokenize.sent_tokenize(corpus)
-#     X_test = create_X_train_test(sentences)
-#     predictions = []
-#     for sentence in X_test:
-#         prediction = model.predict(np.asarray(sentence).reshape(1, -1))
-#         predictions.append(prediction[0])
-#     print(predictions)
-#     full_score = stats.mode(predictions)[0]
-#     return full_score
 
 def get_full_sentiment_mean_unrounded(corpus, vocab, model):
     sentences = tokenize.sent_tokenize(corpus)
@@ -542,41 +331,3 @@ def get_full_sentiment_mode(corpus, vocab, model):
     # print(predictions)
     full_score_mode = stats.mode(predictions/2.0)[0][0]
     return full_score_mode
-
-# ##################################
-# #y_test_pred_10k = model_dt.predict(X_test10k)
-# y_test_pred_10k = []
-# for i, document in enumerate(X_test10k):
-#     temp_dt_y = model_dt.predict(document)
-# #     y_test_pred_10k.append(temp_dt_y.mean().round())
-#     y_test_pred_10k.append(stats.mode(temp_dt_y)[0])
-#
-# predictions_rf10k = []
-# for i, document in enumerate(X_test10k):
-#     temp_rf_y = random_forest.predict(document)
-#     predictions_rf10k.append(temp_rf_y.mean().round())
-# #     predictions_rf10k.append(stats.mode(temp_rf_y)[0])
-# ###################################
-
-# Unit tests for above two functions
-# weighted = get_weighted_sentiment(model, clustering_model='Agglomerative')
-# unweighted = get_unweighted_sentiment(model, clustering_model='Agglomerative')
-# print(weighted)
-# print(unweighted)
-
-# justifications_predictions_rf = random_forest.predict(X_test)
-# print(justificationstwo)
-# print(justifications_predictions_rf)
-# # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
-# print((justifications_predictions_rf/2).mean())
-# # Unweighted calculated using mode instead of mean:
-# print(stats.mode(justifications_predictions_rf/2)[0][0])
-
-# justifications_predictions_dt = model_dt.predict(X_test)
-# print(justifications_predictions_dt)
-#
-# justifications_predictions_nb = naive_bayes.predict(X_test)
-# print(justifications_predictions_nb)
-#
-# justifications_predictions_svm = SVM.predict(X_test)
-# print(justifications_predictions_svm)
