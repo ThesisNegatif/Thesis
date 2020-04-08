@@ -53,7 +53,7 @@ from nltk import tokenize
 # with the final model being returned.
 
 # Function to be made into a class is below.
-def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], num_clusters=5, save_data=False):
+def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], num_clusters=5, save_data=False, embedder=['Wiki','NLI']):
     """
     Args:
         string_text(str): Text on which to perform Justification Mining.
@@ -70,7 +70,10 @@ def JustificationMiner(string_text, clustering_model=['Kmeans','Agglomerative','
     corpus = tokenize.sent_tokenize(string_text)
     # Extract sentence embeddings
     # Also try 'bert-base-nli-mean-tokens' instead of Wikipedia for comparison
-    embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    if embedder=='Wiki':
+        embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    elif embedder=='NLI':
+        embedder = SentenceTransformer('bert-base-nli-mean-tokens')
     corpus_embeddings = embedder.encode(corpus)
 
     # Perform KMeans or Agglomerative clustering
@@ -171,11 +174,11 @@ def create_X_train():
         dictionary_data = {}
         dictionary_data['message_body'] = row['sentence']
         if row['sentiment'] == 'positive':
-             dictionary_data['sentiment'] = 2
+             dictionary_data['sentiment'] = 1
         elif row['sentiment'] == 'negative':
-             dictionary_data['sentiment'] = 0
+             dictionary_data['sentiment'] = -1
         else:
-             dictionary_data['sentiment'] = 1 # For neutral sentiment
+             dictionary_data['sentiment'] = 0 # For neutral sentiment
         list_data.append(dictionary_data)
     dictionary_data = {}
     dictionary_data['data'] = list_data
@@ -278,18 +281,18 @@ def train_classifier(classifier_model=['Decision_Tree','Random_Forest', 'Naive_B
 # model = pickle.load(open(filename, 'rb'))
 ############################################################
 
-def create_X_train_embeddings():
+def create_X_train_embeddings(embedder=['Wiki','NLI']):
     data_csv = pd.read_csv(filepath_or_buffer='Sentences_75Agree_csv.csv' , sep='.@', header=None, names=['sentence','sentiment'], engine='python')
     list_data = []
     for index, row in data_csv.iterrows():
         dictionary_data = {}
         dictionary_data['message_body'] = row['sentence']
         if row['sentiment'] == 'positive':
-             dictionary_data['sentiment'] = 2
+             dictionary_data['sentiment'] = 1
         elif row['sentiment'] == 'negative':
-             dictionary_data['sentiment'] = 0
+             dictionary_data['sentiment'] = -1
         else:
-             dictionary_data['sentiment'] = 1 # For neutral sentiment
+             dictionary_data['sentiment'] = 0 # For neutral sentiment
         list_data.append(dictionary_data)
     dictionary_data = {}
     dictionary_data['data'] = list_data
@@ -298,52 +301,73 @@ def create_X_train_embeddings():
 
     # Extract sentence embeddings
     # Also try 'bert-base-nli-mean-tokens' instead of Wikipedia for comparison
-    embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    if embedder=='Wiki':
+        embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    elif embedder=='NLI':
+        embedder = SentenceTransformer('bert-base-nli-mean-tokens')
     corpus_embeddings = embedder.encode(messages)
     X_train_embeddings = corpus_embeddings
     return X_train_embeddings, sentiments_embeddings
 
-def create_X_test_embeddings(sentences):
+def create_X_test_embeddings(sentences, embedder=['Wiki','NLI']):
     # Extract sentence embeddings
     # Also try 'bert-base-nli-mean-tokens' instead of Wikipedia for comparison
-    embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    if embedder=='Wiki':
+        embedder = SentenceTransformer('bert-base-wikipedia-sections-mean-tokens')
+    elif embedder=='NLI':
+        embedder = SentenceTransformer('bert-base-nli-mean-tokens')
     corpus_embeddings = embedder.encode(sentences)
     X_test_embeddings = corpus_embeddings
     return X_test_embeddings
 
-def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forest', 'Naive_Bayes', 'SVM']):
-    X_train, sentiments = create_X_train_embeddings()
+def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forest', 'Naive_Bayes', 'SVM'], balanced=True, embedder=['Wiki','NLI']):
+    X_train, sentiments = create_X_train_embeddings(embedder=embedder)
     y_train = sentiments
-    if classifier_model=='Decision_Tree':
-        model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
-        model.fit(X_train, y_train)
-    elif classifier_model=='Random_Forest':
-        model = RandomForestClassifier(n_estimators=200)
-        model.fit(X_train, y_train)
-    elif classifier_model=='Naive_Bayes':
-        model = MultinomialNB()
-        model.fit(X_train, y_train)
-    elif classifier_model=='SVM':
-        model = SVC()
-        model.fit(X_train, y_train)
+    if balanced==True:
+        if classifier_model=='Decision_Tree':
+            model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2, class_weight="balanced")
+            model.fit(X_train, y_train)
+        elif classifier_model=='Random_Forest':
+            model = RandomForestClassifier(n_estimators=200, class_weight="balanced")
+            model.fit(X_train, y_train)
+        elif classifier_model=='Naive_Bayes':
+            model = MultinomialNB()
+            model.fit(X_train, y_train)
+        elif classifier_model=='SVM':
+            model = SVC(class_weight="balanced")
+            model.fit(X_train, y_train)
+    elif balanced==False:
+        if classifier_model=='Decision_Tree':
+            model = DecisionTreeClassifier(max_depth=10, min_samples_leaf=6, min_samples_split=2)
+            model.fit(X_train, y_train)
+        elif classifier_model=='Random_Forest':
+            model = RandomForestClassifier(n_estimators=200)
+            model.fit(X_train, y_train)
+        elif classifier_model=='Naive_Bayes':
+            model = MultinomialNB()
+            model.fit(X_train, y_train)
+        elif classifier_model=='SVM':
+            model = SVC()
+            model.fit(X_train, y_train)
     return model
 
 
 
 # Below are the main functions for getting sentiment scores
-def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numerciser=['BoW','SBERT']):
-    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
+def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numerciser=['BoW','SBERT'], embedder=['Wiki', 'NLI']):
+    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False, embedder=embedder)
     if numerciser=='BoW':
         X_test = create_X_test(justifications, vocab)
         justifications_predictions = model.predict(X_test)
     elif numerciser=='SBERT':
-        X_test = create_X_test_embeddings(justifications)
+        X_test = create_X_test_embeddings(justifications, embedder=embedder)
         justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
     # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
     # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
-    justification_weighted_score = (justifications_predictions/2.0).mean()
+    # justification_weighted_score = (justifications_predictions/2.0).mean() # for 0-1
+    justification_weighted_score = (justifications_predictions).mean()
     # print(justification_weighted_scores)
     return justification_weighted_score
 
@@ -359,48 +383,52 @@ def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','A
         X_test = create_X_test(justifications, vocab)
         justifications_predictions = model.predict(X_test)
     elif numerciser=='SBERT':
-        X_test = create_X_test_embeddings(justifications)
+        X_test = create_X_test_embeddings(justifications, embedder=embedder)
         justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
     # print(justifications_predictions)
     # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
     # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
-    justification_unweighted_score = stats.mode(justifications_predictions/2.0)[0][0]
+    # justification_unweighted_score = stats.mode(justifications_predictions/2.0)[0][0] # for 0-1
+    justification_unweighted_score = stats.mode(justifications_predictions)[0][0]
     # print(justification_unweighted_scores)
     return justification_unweighted_score
 
-def get_full_sentiment_mean_unrounded(corpus, vocab, model, numerciser=['BoW','SBERT']):
+def get_full_sentiment_mean_unrounded(corpus, vocab, model, numerciser=['BoW','SBERT'], embedder=['Wiki','NLI']):
     sentences = tokenize.sent_tokenize(corpus)
     if numerciser=='BoW':
         X_test = create_X_test(sentences, vocab)
         predictions = model.predict(X_test)
     elif numerciser=='SBERT':
-        X_test = create_X_test_embeddings(sentences)
+        X_test = create_X_test_embeddings(sentences, embedder=embedder)
         predictions = model.predict(X_test)
     # print(predictions)
-    full_score_mean_unrounded = (predictions/2.0).mean()
+    # full_score_mean_unrounded = (predictions/2.0).mean()
+    full_score_mean_unrounded = (predictions).mean()
     return full_score_mean_unrounded
 
-def get_full_sentiment_mean(corpus, vocab, model, numerciser=['BoW','SBERT']):
+def get_full_sentiment_mean(corpus, vocab, model, numerciser=['BoW','SBERT'], embedder=['Wiki','NLI']):
     sentences = tokenize.sent_tokenize(corpus)
     if numerciser=='BoW':
         X_test = create_X_test(sentences, vocab)
         predictions = model.predict(X_test)
     elif numerciser=='SBERT':
-        X_test = create_X_test_embeddings(sentences)
+        X_test = create_X_test_embeddings(sentences, embedder=embedder)
         predictions = model.predict(X_test)
     # print(predictions)
-    full_score_mean = (predictions/2.0).mean().round()
+    # full_score_mean = (predictions/2.0).mean().round()
+    full_score_mean = (predictions).mean().round()
     return full_score_mean
 
-def get_full_sentiment_mode(corpus, vocab, model, numerciser=['BoW','SBERT']):
+def get_full_sentiment_mode(corpus, vocab, model, numerciser=['BoW','SBERT'], embedder=['Wiki','NLI']):
     sentences = tokenize.sent_tokenize(corpus)
     if numerciser=='BoW':
         X_test = create_X_test(sentences, vocab)
         predictions = model.predict(X_test)
     elif numerciser=='SBERT':
-        X_test = create_X_test_embeddings(sentences)
+        X_test = create_X_test_embeddings(sentences, embedder=embedder)
         predictions = model.predict(X_test)
     # print(predictions)
-    full_score_mode = stats.mode(predictions/2.0)[0][0]
+    # full_score_mode = stats.mode(predictions/2.0)[0][0]
+    full_score_mode = stats.mode(predictions)[0][0]
     return full_score_mode
