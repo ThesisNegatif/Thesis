@@ -354,12 +354,37 @@ def train_classifier_embeddings(classifier_model=['Decision_Tree','Random_Forest
 
 
 # Below are the main functions for getting sentiment scores
-def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numerciser=['BoW','SBERT'], embedder=['Wiki', 'NLI']):
+def get_mined_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numericiser=['BoW','SBERT'], embedder=['Wiki', 'NLI'], aggregation=['Mean','Mode','MeanRounded']):
     justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False, embedder=embedder)
-    if numerciser=='BoW':
+    if numericiser=='BoW':
         X_test = create_X_test(justifications, vocab)
         justifications_predictions = model.predict(X_test)
-    elif numerciser=='SBERT':
+    elif numericiser=='SBERT':
+        X_test = create_X_test_embeddings(justifications, embedder=embedder)
+        justifications_predictions = model.predict(X_test)
+    # print(justificationstwo)
+    # print(justifications_predictions)
+    # Weighted calculation below: Note, this would be the unweighted sentiment to correlate to stock returns
+    # Note predictions are divided by 2 so values are between 0 and 1 for logit function later
+    # justification_weighted_score = (justifications_predictions/2.0).mean() # for 0-1
+    if aggregation=='Mean':
+        justification_score = (justifications_predictions).mean()
+    elif aggregation=='Mode':
+        justification_score = stats.mode(justifications_predictions)[0][0]
+    elif aggregation=='MeanRounded':
+        justification_score = (justifications_predictions).mean().round()
+    # print(justification_weighted_scores)
+    return justification_score
+
+
+
+
+def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numericiser=['BoW','SBERT'], embedder=['Wiki', 'NLI']):
+    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False, embedder=embedder)
+    if numericiser=='BoW':
+        X_test = create_X_test(justifications, vocab)
+        justifications_predictions = model.predict(X_test)
+    elif numericiser=='SBERT':
         X_test = create_X_test_embeddings(justifications, embedder=embedder)
         justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
@@ -377,12 +402,12 @@ def get_weighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agg
 # But mode doesn't make much sense because it gets rid of the weight, so it is more like checking if 5 mined justifications can
 # capture the full sentiment of the entire document.
 # Read what you wrote in your thesis and then clarify all these terms
-def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numerciser=['BoW','SBERT']):
-    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False)
-    if numerciser=='BoW':
+def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','Agglomerative','DBSCAN','MeanShift'], numericiser=['BoW','SBERT'], embedder=['Wiki', 'NLI']):
+    justifications = JustificationMiner(corpus, clustering_model=clustering_model, num_clusters=5, save_data=False, embedder=embedder)
+    if numericiser=='BoW':
         X_test = create_X_test(justifications, vocab)
         justifications_predictions = model.predict(X_test)
-    elif numerciser=='SBERT':
+    elif numericiser=='SBERT':
         X_test = create_X_test_embeddings(justifications, embedder=embedder)
         justifications_predictions = model.predict(X_test)
     # print(justificationstwo)
@@ -394,12 +419,30 @@ def get_unweighted_sentiment(corpus, vocab, model, clustering_model=['Kmeans','A
     # print(justification_unweighted_scores)
     return justification_unweighted_score
 
-def get_full_sentiment_mean_unrounded(corpus, vocab, model, numerciser=['BoW','SBERT'], embedder=['Wiki','NLI']):
+def get_full_sentiment(corpus, vocab, model, numericiser=['BoW','SBERT'], embedder=['Wiki','NLI'], aggregation=['Mean','Mode','MeanRounded']):
     sentences = tokenize.sent_tokenize(corpus)
-    if numerciser=='BoW':
+    if numericiser=='BoW':
         X_test = create_X_test(sentences, vocab)
         predictions = model.predict(X_test)
-    elif numerciser=='SBERT':
+    elif numericiser=='SBERT':
+        X_test = create_X_test_embeddings(sentences, embedder=embedder)
+        predictions = model.predict(X_test)
+    # print(predictions)
+    # full_score_mean_unrounded = (predictions/2.0).mean()
+    if aggregation=='Mean':
+        full_score = (predictions).mean()
+    elif aggregation=='Mode':
+        full_score = stats.mode(predictions)[0][0]
+    elif aggregation=='MeanRounded':
+        full_score = (predictions).mean().round()
+    return full_score
+
+def get_full_sentiment_mean_unrounded(corpus, vocab, model, numericiser=['BoW','SBERT'], embedder=['Wiki','NLI']):
+    sentences = tokenize.sent_tokenize(corpus)
+    if numericiser=='BoW':
+        X_test = create_X_test(sentences, vocab)
+        predictions = model.predict(X_test)
+    elif numericiser=='SBERT':
         X_test = create_X_test_embeddings(sentences, embedder=embedder)
         predictions = model.predict(X_test)
     # print(predictions)
@@ -407,12 +450,12 @@ def get_full_sentiment_mean_unrounded(corpus, vocab, model, numerciser=['BoW','S
     full_score_mean_unrounded = (predictions).mean()
     return full_score_mean_unrounded
 
-def get_full_sentiment_mean(corpus, vocab, model, numerciser=['BoW','SBERT'], embedder=['Wiki','NLI']):
+def get_full_sentiment_mean(corpus, vocab, model, numericiser=['BoW','SBERT'], embedder=['Wiki','NLI']):
     sentences = tokenize.sent_tokenize(corpus)
-    if numerciser=='BoW':
+    if numericiser=='BoW':
         X_test = create_X_test(sentences, vocab)
         predictions = model.predict(X_test)
-    elif numerciser=='SBERT':
+    elif numericiser=='SBERT':
         X_test = create_X_test_embeddings(sentences, embedder=embedder)
         predictions = model.predict(X_test)
     # print(predictions)
@@ -420,12 +463,12 @@ def get_full_sentiment_mean(corpus, vocab, model, numerciser=['BoW','SBERT'], em
     full_score_mean = (predictions).mean().round()
     return full_score_mean
 
-def get_full_sentiment_mode(corpus, vocab, model, numerciser=['BoW','SBERT'], embedder=['Wiki','NLI']):
+def get_full_sentiment_mode(corpus, vocab, model, numericiser=['BoW','SBERT'], embedder=['Wiki','NLI']):
     sentences = tokenize.sent_tokenize(corpus)
-    if numerciser=='BoW':
+    if numericiser=='BoW':
         X_test = create_X_test(sentences, vocab)
         predictions = model.predict(X_test)
-    elif numerciser=='SBERT':
+    elif numericiser=='SBERT':
         X_test = create_X_test_embeddings(sentences, embedder=embedder)
         predictions = model.predict(X_test)
     # print(predictions)
