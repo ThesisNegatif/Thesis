@@ -1,4 +1,4 @@
-# Repository contains code written for the research investigation of my doctoral thesis at the University of Oxford.
+# Repository contains code written for the research investigation of my doctoral thesis at the University of Oxford
 
 The main files are justification_miners.py, classifier_trainers.py and sentiment_analysers.py.
 
